@@ -9,6 +9,9 @@ export function setup() {
     db.prepare(
         "CREATE TABLE IF NOT EXISTS flakies (ulid TEXT PRIMARY KEY, projectURL TEXT NOT NULL, firstDetectCommit TEXT NOT NULL, firstDetectTime INTEGER NOT NULL, fixCommit TEXT, fixTime INTEGER, modulePath TEXT NOT NULL, qualifiedTestName TEXT NOT NULL, category TEXT)"
     ).run();
+    db.prepare(
+        "CREATE TABLE IF NOT EXISTS projects (name TEXT PRIMARY KEY, lastCheckedCommit TEXT)"
+    ).run();
 }
 
 export function getActiveFlakies() {
@@ -57,4 +60,21 @@ export function markFlakyFixed(
 
 export function deleteFlaky(ulid: string) {
     db.prepare("DELETE FROM flakies WHERE ulid = ?").run(ulid);
+}
+
+export function getProjectLastCheckedCommit(projectName: string) {
+    return (
+        db
+            .prepare("SELECT lastCheckedCommit FROM projects WHERE name = ?")
+            .get(projectName) as { lastCheckedCommit: string } | undefined
+    )?.lastCheckedCommit;
+}
+
+export function setProjectLastCheckedCommit(
+    projectName: string,
+    commit: string
+) {
+    db.prepare(
+        "REPLACE INTO projects (name, lastCheckedCommit) VALUES (?, ?)"
+    ).run(projectName, commit);
 }
