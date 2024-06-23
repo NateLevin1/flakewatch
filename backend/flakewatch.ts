@@ -1,5 +1,6 @@
 import { getProjectLastCheckedCommit, setProjectLastCheckedCommit } from "./db";
-import { projects } from "./projects";
+import { detectIDFlakies } from "./detectors";
+import { projects } from "./config";
 import {
     simpleGit,
     CleanOptions,
@@ -27,11 +28,13 @@ export async function flakewatch() {
             // * Update the project to the latest commit
             try {
                 await git.clone(project.gitURL, project.name);
+                await git.cwd("clones/" + project.name);
             } catch (e) {
+                await git.cwd("clones/" + project.name);
                 // clone fails if non-empty, so pull instead if it's already cloned
+                await git.reset(["--hard"]);
                 await git.pull();
             }
-            await git.cwd("clones/" + project.name);
 
             const lastCheckedCommit = getProjectLastCheckedCommit(project.name);
             const log = await git.log({
@@ -65,6 +68,26 @@ export async function flakewatch() {
                             .map((s) => s.testName.split(".").at(-1))
                             .join(", ")}`
                     );
+
+                    // * Run flakiness detectors
+                    for (const { testName, commit, module } of modifiedTests) {
+                        await git.checkout(commit);
+                        try {
+                            await detectIDFlakies(
+                                testName,
+                                `${__dirname}/clones/${project.name}/${module}`
+                            );
+                        } catch (e) {
+                            console.error(
+                                project.name +
+                                    ": Something went wrong when running detectors for ",
+                                testName
+                            );
+                            console.error(e);
+                        }
+                        await git.checkout("-");
+                    }
+                    console.log(project.name + ": Finished running detectors.");
                 }
             }
         }
@@ -75,7 +98,11 @@ export async function flakewatch() {
 }
 
 async function findModifiedTests(log: LogResult<DefaultLogFields>) {
-    let modifiedTests: { testName: string; commit: string }[] = [];
+    let modifiedTests: {
+        testName: string;
+        commit: string;
+        module: string;
+    }[] = [];
     for (const commit of log.all) {
         const diff = await git.diff([
             commit.hash + "^",
@@ -85,24 +112,30 @@ async function findModifiedTests(log: LogResult<DefaultLogFields>) {
         ]);
         const lines = diff.split("\n");
 
-        let curTestPrefix: string | null = null;
-        let curFile: string[] | null = null;
+        let curDetails: {
+            file: string[];
+            testPrefix: string;
+            module: string;
+        } | null = null;
         for (const line of lines) {
             if (line.startsWith("+++")) {
                 const filepath = line.split(" ")[1]!.slice(2);
                 const srcTestIndex = filepath.indexOf("src/test/java");
                 if (!filepath.endsWith(".java") || srcTestIndex === -1) {
-                    curFile = null;
+                    curDetails = null;
                     continue;
                 }
                 const qualifiedTestClass = filepath
                     .slice(srcTestIndex + 14, -5)
                     .replaceAll("/", ".");
-                curTestPrefix = qualifiedTestClass;
-                curFile = (
-                    await git.show([commit.hash + ":" + filepath])
-                ).split("\n");
-            } else if (line.startsWith("@@") && curFile != null) {
+                curDetails = {
+                    testPrefix: qualifiedTestClass,
+                    file: (
+                        await git.show([commit.hash + ":" + filepath])
+                    ).split("\n"),
+                    module: filepath.slice(0, srcTestIndex - 1),
+                };
+            } else if (line.startsWith("@@") && curDetails != null) {
                 const match = line.match(
                     /@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/
                 );
@@ -113,13 +146,13 @@ async function findModifiedTests(log: LogResult<DefaultLogFields>) {
                     for (let i = 0; i < count; i++) {
                         const lineNum = start + i;
                         // for each line, search for the test that it is potentially in
-                        const line = curFile![lineNum]!.trimEnd();
+                        const line = curDetails.file[lineNum]!.trimEnd();
                         if (!line) continue;
                         const indentation = line.search(/\S/);
                         // while the indentation is decreasing, check if the line contains @Test. If so, add the test to modifiedTests
                         let j = lineNum - 1;
                         while (j >= 0) {
-                            const checkLine = curFile![j]!.trimEnd();
+                            const checkLine = curDetails.file[j]!.trimEnd();
                             if (!checkLine) {
                                 j--;
                                 continue;
@@ -137,10 +170,12 @@ async function findModifiedTests(log: LogResult<DefaultLogFields>) {
                                 const testRegex = /(\w+)\(\)/;
                                 const testName =
                                     checkLine.match(testRegex)?.[1] ??
-                                    curFile![j + 1]!.match(testRegex)?.[1];
+                                    curDetails.file[j + 1]!.match(
+                                        testRegex
+                                    )?.[1];
                                 if (testName) {
                                     const qualifiedTestName =
-                                        curTestPrefix + "." + testName;
+                                        curDetails.testPrefix + "." + testName;
                                     if (
                                         !modifiedTests.find(
                                             (t) =>
@@ -150,13 +185,14 @@ async function findModifiedTests(log: LogResult<DefaultLogFields>) {
                                         modifiedTests.push({
                                             testName: qualifiedTestName,
                                             commit: commit.hash,
+                                            module: curDetails.module,
                                         });
                                     break;
                                 } else {
                                     console.warn(
                                         "Failed to find test name in:",
                                         checkLine,
-                                        curFile![j + 1]!
+                                        curDetails.file[j + 1]!
                                     );
                                 }
                             }
