@@ -2,10 +2,9 @@ import express from "express";
 import { CronJob } from "cron";
 import { flakewatch } from "./flakewatch";
 import { getActiveFlakies, setup as setupDB } from "./db";
-import { loadProjects, projects } from "./projects";
+import { config, loadConfig, projects } from "./config";
 
 const app = express();
-const port = 3000;
 
 app.get("/list", (req, res) => {
     res.type("text/csv");
@@ -21,12 +20,12 @@ app.get("/list", (req, res) => {
     );
 });
 
-app.listen(port, () => {
+app.listen(config.port, () => {
     console.log(
-        `Flakewatch started. Server is running on http://localhost:${port}/list`
+        `Flakewatch started. Server is running on http://localhost:${config.port}/list`
     );
     setupDB();
-    loadProjects();
+    loadConfig();
     console.log(
         "Loaded " +
             projects.length +
@@ -34,5 +33,5 @@ app.listen(port, () => {
             projects.map((p) => p.name).join(", ") +
             "."
     );
-    new CronJob("0 * * * * *", flakewatch, null, true, null, null, true);
+    new CronJob("*/15 * * * *", flakewatch, null, true, null, null, true);
 });
