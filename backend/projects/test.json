@@ -1,4 +1,5 @@
 {
     "name": "test",
-    "gitURL": "https://github.com/NateLevin1/toy-flaky-tests.git"
+    "gitURL": "https://github.com/NateLevin1/test-nondex.git",
+    "branch": "main"
 }

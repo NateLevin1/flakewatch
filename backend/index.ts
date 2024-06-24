@@ -5,6 +5,7 @@ import { getActiveFlakies, setup as setupDB } from "./db";
 import { config, loadConfig, projects } from "./config";
 
 const app = express();
+loadConfig();
 
 app.get("/list", (req, res) => {
     res.type("text/csv");
@@ -25,7 +26,6 @@ app.listen(config.port, () => {
         `Flakewatch started. Server is running on http://localhost:${config.port}/list`
     );
     setupDB();
-    loadConfig();
     console.log(
         "Loaded " +
             projects.length +

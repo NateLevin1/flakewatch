@@ -3,6 +3,7 @@ import fs from "fs";
 export type Project = {
     name: string;
     gitURL: string;
+    branch: string;
 };
 
 export const projects: Project[] = [];

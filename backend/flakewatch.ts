@@ -1,5 +1,5 @@
 import { getProjectLastCheckedCommit, setProjectLastCheckedCommit } from "./db";
-import { detectIDFlakies } from "./detectors";
+import { runDetectors } from "./detectors";
 import { projects } from "./config";
 import {
     simpleGit,
@@ -32,6 +32,7 @@ export async function flakewatch() {
             } catch (e) {
                 await git.cwd("clones/" + project.name);
                 // clone fails if non-empty, so pull instead if it's already cloned
+                await git.checkout(project.branch);
                 await git.reset(["--hard"]);
                 await git.pull();
             }
@@ -73,19 +74,19 @@ export async function flakewatch() {
                     for (const { testName, commit, module } of modifiedTests) {
                         await git.checkout(commit);
                         try {
-                            await detectIDFlakies(
+                            await runDetectors(
                                 testName,
                                 `${__dirname}/clones/${project.name}/${module}`
                             );
                         } catch (e) {
                             console.error(
                                 project.name +
-                                    ": Something went wrong when running detectors for ",
-                                testName
+                                    ": Something went wrong when running detectors for " +
+                                    testName
                             );
                             console.error(e);
                         }
-                        await git.checkout("-");
+                        await git.checkout(project.branch);
                     }
                     console.log(project.name + ": Finished running detectors.");
                 }
@@ -133,7 +134,10 @@ async function findModifiedTests(log: LogResult<DefaultLogFields>) {
                     file: (
                         await git.show([commit.hash + ":" + filepath])
                     ).split("\n"),
-                    module: filepath.slice(0, srcTestIndex - 1),
+                    module:
+                        srcTestIndex != 0
+                            ? filepath.slice(0, srcTestIndex - 1)
+                            : "",
                 };
             } else if (line.startsWith("@@") && curDetails != null) {
                 const match = line.match(
@@ -175,7 +179,7 @@ async function findModifiedTests(log: LogResult<DefaultLogFields>) {
                                     )?.[1];
                                 if (testName) {
                                     const qualifiedTestName =
-                                        curDetails.testPrefix + "." + testName;
+                                        curDetails.testPrefix + "#" + testName;
                                     if (
                                         !modifiedTests.find(
                                             (t) =>
