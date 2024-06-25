@@ -162,7 +162,7 @@ async function findModifiedTests(log: LogResult<DefaultLogFields>) {
                                 continue;
                             }
                             if (checkLine.search(/\S/) > indentation) break;
-                            if (checkLine.includes("@Test")) {
+                            if (checkLine.match(/@Test(?:$|\W)/)) {
                                 // now we have to find the actual test name
                                 // most tests are written in syntax similar to either:
                                 // @Test
@@ -175,6 +175,9 @@ async function findModifiedTests(log: LogResult<DefaultLogFields>) {
                                 const testName =
                                     checkLine.match(testRegex)?.[1] ??
                                     curDetails.file[j + 1]!.match(
+                                        testRegex
+                                    )?.[1] ??
+                                    curDetails.file[j + 2]!.match(
                                         testRegex
                                     )?.[1];
                                 if (testName) {
@@ -194,9 +197,12 @@ async function findModifiedTests(log: LogResult<DefaultLogFields>) {
                                     break;
                                 } else {
                                     console.warn(
-                                        "Failed to find test name in:",
-                                        checkLine,
-                                        curDetails.file[j + 1]!
+                                        "Failed to find test name in:\n" +
+                                            checkLine +
+                                            "\nnor:" +
+                                            curDetails.file[j + 1]! +
+                                            "\nnor:" +
+                                            curDetails.file[j + 2]!
                                     );
                                 }
                             }
