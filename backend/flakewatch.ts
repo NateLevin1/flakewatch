@@ -146,7 +146,10 @@ async function findModifiedTests(log: LogResult<DefaultLogFields>) {
                 if (match) {
                     const start = parseInt(match[1]!) - 1;
                     const count = parseInt(match[2] ?? "1");
-                    if (count == 0) continue;
+                    if (count == 0) continue; // FIXME: handle this case
+                    const isJUnit3 =
+                        line.includes("public class") &&
+                        line.includes("extends TestCase");
                     for (let i = 0; i < count; i++) {
                         const lineNum = start + i;
                         // for each line, search for the test that it is potentially in
@@ -162,7 +165,12 @@ async function findModifiedTests(log: LogResult<DefaultLogFields>) {
                                 continue;
                             }
                             if (checkLine.search(/\S/) > indentation) break;
-                            if (checkLine.match(/@Test(?:$|\W)/)) {
+                            if (
+                                isJUnit3
+                                    ? checkLine.includes("public void") &&
+                                      checkLine.includes("test")
+                                    : checkLine.match(/@Test(?:$|\W)/)
+                            ) {
                                 // now we have to find the actual test name
                                 // most tests are written in syntax similar to either:
                                 // @Test
