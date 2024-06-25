@@ -7,7 +7,7 @@ import { config, loadConfig, projects } from "./config";
 const app = express();
 loadConfig();
 
-app.get("/list", (req, res) => {
+app.get("/list.csv", (req, res) => {
     res.type("text/csv");
     res.status(200);
     res.send(
