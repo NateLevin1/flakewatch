@@ -15,9 +15,29 @@ export function setup() {
     ).run();
 }
 
+export function toCsv(fn: () => Flaky[]) {
+    return (
+        "id,projectURL,firstDetectCommit,firstDetectTime,fixCommit,fixTime,modulePath,qualifiedTestName,category\n" +
+        fn()
+            .map(
+                (flaky) =>
+                    `${flaky.ulid},${flaky.projectURL},${flaky.firstDetectCommit},${flaky.firstDetectTime},${flaky.fixCommit},${flaky.fixTime},${flaky.modulePath},${flaky.qualifiedTestName},${flaky.category}`
+            )
+            .join("\n")
+    );
+}
+
 export function getActiveFlakies() {
     return db
-        .prepare("SELECT * FROM flakies WHERE fixCommit IS NULL")
+        .prepare(
+            "SELECT * FROM flakies WHERE fixCommit IS NULL ORDER BY projectURL ASC"
+        )
+        .all() as Flaky[];
+}
+
+export function getAllFlakies() {
+    return db
+        .prepare("SELECT * FROM flakies ORDER BY projectURL ASC")
         .all() as Flaky[];
 }
 
@@ -49,6 +69,14 @@ export function insertFlaky({
     );
 }
 
+export function getFlaky(qualifiedTestName: string) {
+    return db
+        .prepare(
+            "SELECT * FROM flakies WHERE qualifiedTestName = ? ORDER BY firstDetectTime DESC LIMIT 1"
+        )
+        .get(qualifiedTestName) as Flaky | undefined;
+}
+
 export function markFlakyFixed(
     fixCommit: string,
     fixTime: number,
@@ -57,6 +85,13 @@ export function markFlakyFixed(
     db.prepare(
         "UPDATE flakies SET fixCommit = ?, fixTime = ? WHERE ulid in (SELECT ulid FROM flakies WHERE qualifiedTestName = ? ORDER BY firstDetectTime DESC LIMIT 1);"
     ).run(fixCommit, fixTime, qualifiedTestName);
+}
+
+export function updateFlakyCategory(ulid: string, category: string) {
+    db.prepare("UPDATE flakies SET category = ? WHERE ulid = ?").run(
+        category,
+        ulid
+    );
 }
 
 export function deleteFlaky(ulid: string) {

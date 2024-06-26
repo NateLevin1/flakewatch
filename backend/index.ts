@@ -1,29 +1,27 @@
 import express from "express";
 import { CronJob } from "cron";
 import { flakewatch } from "./flakewatch";
-import { getActiveFlakies, setup as setupDB } from "./db";
+import { getActiveFlakies, toCsv, setup as setupDB, getAllFlakies } from "./db";
 import { config, loadConfig, projects } from "./config";
 
 const app = express();
 loadConfig();
 
+app.get("/active.csv", (req, res) => {
+    res.type("text/csv");
+    res.status(200);
+    res.send(toCsv(getActiveFlakies));
+});
+
 app.get("/list.csv", (req, res) => {
     res.type("text/csv");
     res.status(200);
-    res.send(
-        "id,projectURL,firstDetectCommit,firstDetectTime,fixCommit,fixTime,modulePath,qualifiedTestName,category\n" +
-            getActiveFlakies()
-                .map(
-                    (flaky) =>
-                        `${flaky.ulid},${flaky.projectURL},${flaky.firstDetectCommit},${flaky.firstDetectTime},${flaky.fixCommit},${flaky.fixTime},${flaky.modulePath},${flaky.qualifiedTestName},${flaky.category}`
-                )
-                .join("\n")
-    );
+    res.send(toCsv(getAllFlakies));
 });
 
 app.listen(config.port, () => {
     console.log(
-        `Flakewatch started. Server is running on http://localhost:${config.port}/list`
+        `Flakewatch started. Server is running on http://localhost:${config.port}/list.csv`
     );
     setupDB();
     console.log(
