@@ -2,10 +2,11 @@ import Database from "better-sqlite3";
 import { ulid } from "ulid";
 import { Flaky } from "./flakewatch";
 
-const db = new Database("flakewatch.db");
-db.pragma("journal_mode = WAL");
+let db: Database.Database;
 
 export function setup() {
+    db = new Database("flakewatch.db");
+    db.pragma("journal_mode = WAL");
     db.prepare(
         "CREATE TABLE IF NOT EXISTS flakies (ulid TEXT PRIMARY KEY, projectURL TEXT NOT NULL, firstDetectCommit TEXT NOT NULL, firstDetectTime INTEGER NOT NULL, fixCommit TEXT, fixTime INTEGER, modulePath TEXT NOT NULL, qualifiedTestName TEXT NOT NULL, category TEXT)"
     ).run();
