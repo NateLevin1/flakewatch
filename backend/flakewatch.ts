@@ -36,123 +36,139 @@ export type Flaky = {
     category?: string;
 };
 
-export async function flakewatch() {
+const projectsCurrentlyRunning = new Set<string>();
+
+export async function flakewatchAll() {
     try {
         for (const project of projects) {
-            // * Update the project to the latest commit
-            try {
-                await git.clone(project.gitURL, project.name);
-                await git.cwd("clones/" + project.name);
-            } catch (e) {
-                await git.cwd("clones/" + project.name);
-                // clone fails if non-empty, so pull instead if it's already cloned
-                await git.reset(["--hard"]);
-                await git.checkout(project.branch);
-                await git.reset(["--hard"]);
-                await git.pull();
-            }
-
-            const lastCheckedCommit = "e824d58"; //getProjectLastCheckedCommit(project.name);
-            const log = await git.log({
-                from: lastCheckedCommit,
-                to: "HEAD",
-            });
-            if (!log.latest) continue;
-
-            if (!lastCheckedCommit) {
-                setProjectLastCheckedCommit(project.name, log.latest.hash);
-                console.log(
-                    `${project.name}: Initializing at commit ${log.latest.hash}`
-                );
-                continue;
-            }
-
-            const newCommitsExist = log.latest.hash !== lastCheckedCommit;
-            if (newCommitsExist) {
-                setProjectLastCheckedCommit(project.name, log.latest.hash);
-                console.log(
-                    `${project.name}: ${log.all.length} new commit(s) found`
-                );
-
-                downloadCILogs(project, log);
-
-                const modifiedTests = await findModifiedTests(log);
-                if (modifiedTests.length > 0) {
-                    const sha = log.latest.hash.slice(0, 7);
-                    console.log(
-                        `${project.name}: ${
-                            modifiedTests.length
-                        } tests modified up to commit ${sha}: ${modifiedTests
-                            .map((s) => s.testName.split(".").at(-1))
-                            .join(", ")}`
-                    );
-
-                    // * Run flakiness detectors
-                    for (const { testName, commit, module } of modifiedTests) {
-                        await git.reset(["--hard"]);
-                        await git.checkout(commit);
-                        let detections: DetectionCause[] = [];
-                        try {
-                            detections = await runDetectors(
-                                testName,
-                                `${import.meta.dirname}/clones/${project.name}`,
-                                module,
-                                project
-                            );
-                        } catch (e) {
-                            console.error(
-                                project.name +
-                                    ": Something went wrong when running detectors for " +
-                                    testName
-                            );
-                            console.error(e);
-                        }
-                        await git.reset(["--hard"]);
-                        await git.checkout(project.branch);
-
-                        const existing = getFlaky(testName);
-
-                        if (detections.length > 0) {
-                            // add to DB
-                            const newCategory = detections.join("&");
-                            const insert = () => {
-                                insertFlaky({
-                                    projectURL: project.gitURL,
-                                    firstDetectCommit: commit,
-                                    firstDetectTime: Date.now(),
-                                    modulePath: module,
-                                    qualifiedTestName: testName,
-                                    category: newCategory,
-                                });
-                            };
-                            if (existing) {
-                                if (existing.category !== newCategory) {
-                                    if (existing.fixCommit) {
-                                        insert();
-                                    } else {
-                                        updateFlakyCategory(
-                                            existing.ulid,
-                                            newCategory
-                                        );
-                                    }
-                                }
-                            } else {
-                                insert();
-                            }
-                        } else {
-                            if (existing) {
-                                // we previously detected this test as flaky, but we no longer do
-                                markFlakyFixed(commit, Date.now(), testName);
-                            }
-                        }
-                    }
-                    console.log(project.name + ": Finished running detectors.");
-                }
-            }
+            flakewatch(project);
         }
     } catch (e) {
         console.error("Something went wrong when running flakewatch.");
         console.error(e);
+    }
+}
+
+export async function flakewatch(project: Project, attempt = 0) {
+    if (projectsCurrentlyRunning.has(project.name)) {
+        console.error(
+            `${project.name}: Flakewatch triggered while already running. Will retry later.`
+        );
+        if (attempt < 10) {
+            setTimeout(() => flakewatch(project, attempt + 1), 300_000);
+        } else {
+            console.error(
+                `${project.name}: Flakewatch failed to run after 10 attempts. Something is very wrong - data may never get to active.`
+            );
+        }
+        return;
+    }
+    projectsCurrentlyRunning.add(project.name);
+
+    // * Update the project to the latest commit
+    try {
+        await git.clone(project.gitURL, project.name);
+        await git.cwd("clones/" + project.name);
+    } catch (e) {
+        await git.cwd("clones/" + project.name);
+        // clone fails if non-empty, so pull instead if it's already cloned
+        await git.reset(["--hard"]);
+        await git.checkout(project.branch);
+        await git.reset(["--hard"]);
+        await git.pull();
+    }
+
+    const lastCheckedCommit = "e824d58"; //getProjectLastCheckedCommit(project.name);
+    const log = await git.log({
+        from: lastCheckedCommit,
+        to: "HEAD",
+    });
+    if (!log.latest) return;
+
+    if (!lastCheckedCommit) {
+        setProjectLastCheckedCommit(project.name, log.latest.hash);
+        console.log(
+            `${project.name}: Initializing at commit ${log.latest.hash}`
+        );
+        return;
+    }
+
+    const newCommitsExist = log.latest.hash !== lastCheckedCommit;
+    if (newCommitsExist) {
+        setProjectLastCheckedCommit(project.name, log.latest.hash);
+        console.log(`${project.name}: ${log.all.length} new commit(s) found`);
+
+        downloadCILogs(project, log);
+
+        const modifiedTests = await findModifiedTests(log);
+        if (modifiedTests.length > 0) {
+            const sha = log.latest.hash.slice(0, 7);
+            console.log(
+                `${project.name}: ${
+                    modifiedTests.length
+                } tests modified up to commit ${sha}: ${modifiedTests
+                    .map((s) => s.testName.split(".").at(-1))
+                    .join(", ")}`
+            );
+
+            // * Run flakiness detectors
+            for (const { testName, commit, module } of modifiedTests) {
+                await git.reset(["--hard"]);
+                await git.checkout(commit);
+                let detections: DetectionCause[] = [];
+                try {
+                    detections = await runDetectors(
+                        testName,
+                        `${import.meta.dirname}/clones/${project.name}`,
+                        module,
+                        project
+                    );
+                } catch (e) {
+                    console.error(
+                        project.name +
+                            ": Something went wrong when running detectors for " +
+                            testName
+                    );
+                    console.error(e);
+                }
+                await git.reset(["--hard"]);
+                await git.checkout(project.branch);
+
+                const existing = getFlaky(testName);
+
+                if (detections.length > 0) {
+                    // add to DB
+                    const newCategory = detections.join("&");
+                    const insert = () => {
+                        insertFlaky({
+                            projectURL: project.gitURL,
+                            firstDetectCommit: commit,
+                            firstDetectTime: Date.now(),
+                            modulePath: module,
+                            qualifiedTestName: testName,
+                            category: newCategory,
+                        });
+                    };
+                    if (existing) {
+                        if (existing.category !== newCategory) {
+                            if (existing.fixCommit) {
+                                insert();
+                            } else {
+                                updateFlakyCategory(existing.ulid, newCategory);
+                            }
+                        }
+                    } else {
+                        insert();
+                    }
+                } else {
+                    if (existing) {
+                        // we previously detected this test as flaky, but we no longer do
+                        markFlakyFixed(commit, Date.now(), testName);
+                    }
+                }
+            }
+            console.log(project.name + ": Finished running detectors.");
+        }
     }
 }
 

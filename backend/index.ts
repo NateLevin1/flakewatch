@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import { CronJob } from "cron";
-import { flakewatch } from "./flakewatch.js";
+import { flakewatchAll } from "./flakewatch.js";
 import {
     getActiveFlakies,
     toCsv,
@@ -37,5 +37,5 @@ app.listen(config.port, () => {
             projects.map((p) => p.name).join(", ") +
             "."
     );
-    new CronJob("*/15 * * * *", flakewatch, null, true, null, null, true);
+    new CronJob("0 * * * *", flakewatchAll, null, true, null, null, true);
 });
