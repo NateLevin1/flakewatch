@@ -78,7 +78,7 @@ export async function flakewatch(project: Project, attempt = 0) {
         await git.pull();
     }
 
-    const lastCheckedCommit = "e824d58"; //getProjectLastCheckedCommit(project.name);
+    const lastCheckedCommit = getProjectLastCheckedCommit(project.name);
     const log = await git.log({
         from: lastCheckedCommit,
         to: "HEAD",

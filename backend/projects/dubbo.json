@@ -1,0 +1,5 @@
+{
+    "name": "dubbo",
+    "gitURL": "https://github.com/apache/dubbo.git",
+    "branch": "3.2"
+}
