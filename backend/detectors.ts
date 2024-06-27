@@ -72,19 +72,14 @@ export async function runDetectors(
 
     const detections: DetectionCause[] = [];
 
-    await detectNonDex(detectorInfo, detections); // nondex cannot be run in parallel with other detectors
-
-    (
-        await Promise.allSettled([
-            // detectIDFlakies(detectorInfo, detections);
-            detectIsolation(detectorInfo, detections),
-            detectOneByOne(detectorInfo, detections),
-        ])
-    ).forEach((result) => {
-        if (result.status === "rejected") {
-            console.error(result.reason);
-        }
-    });
+    try {
+        // detectIDFlakies(detectorInfo, detections);
+        await detectNonDex(detectorInfo, detections);
+        await detectIsolation(detectorInfo, detections);
+        await detectOneByOne(detectorInfo, detections);
+    } catch (e) {
+        console.error(e);
+    }
 
     if (detections.length > 0) {
         console.log(
