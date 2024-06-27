@@ -1,5 +1,12 @@
-import { getProjectLastCheckedCommit, setProjectLastCheckedCommit } from "./db";
-import { runDetectors } from "./detectors";
+import {
+    getFlaky,
+    getProjectLastCheckedCommit,
+    insertFlaky,
+    markFlakyFixed,
+    setProjectLastCheckedCommit,
+    updateFlakyCategory,
+} from "./db";
+import { DetectionCause, runDetectors } from "./detectors";
 import { projects } from "./config";
 import {
     simpleGit,
@@ -37,9 +44,9 @@ export async function flakewatch() {
                 await git.pull();
             }
 
-            const lastCheckedCommit = getProjectLastCheckedCommit(project.name);
+            const lastCheckedCommit = "e824d58"; //getProjectLastCheckedCommit(project.name);
             const log = await git.log({
-                from: "d2fcf86b3ff223fc9f04ec7a347d61a01088ef86", //lastCheckedCommit,
+                from: lastCheckedCommit,
                 to: "HEAD",
             });
             if (!log.latest) continue;
@@ -52,11 +59,11 @@ export async function flakewatch() {
                 continue;
             }
 
-            const newCommitsExist = true; //log.latest.hash !== lastCheckedCommit;
+            const newCommitsExist = log.latest.hash !== lastCheckedCommit;
             if (newCommitsExist) {
                 setProjectLastCheckedCommit(project.name, log.latest.hash);
                 console.log(
-                    `${project.name}: ${log.all.length} new commits found`
+                    `${project.name}: ${log.all.length} new commit(s) found`
                 );
 
                 const modifiedTests = await findModifiedTests(log);
@@ -73,10 +80,13 @@ export async function flakewatch() {
                     // * Run flakiness detectors
                     for (const { testName, commit, module } of modifiedTests) {
                         await git.checkout(commit);
+                        let detections: DetectionCause[] = [];
                         try {
-                            await runDetectors(
+                            detections = await runDetectors(
                                 testName,
-                                `${__dirname}/clones/${project.name}/${module}`
+                                `${__dirname}/clones/${project.name}`,
+                                module,
+                                project
                             );
                         } catch (e) {
                             console.error(
@@ -87,6 +97,42 @@ export async function flakewatch() {
                             console.error(e);
                         }
                         await git.checkout(project.branch);
+
+                        const existing = getFlaky(testName);
+
+                        if (detections.length > 0) {
+                            // add to DB
+                            const newCategory = detections.join("&");
+                            const insert = () => {
+                                insertFlaky({
+                                    projectURL: project.gitURL,
+                                    firstDetectCommit: commit,
+                                    firstDetectTime: Date.now(),
+                                    modulePath: module,
+                                    qualifiedTestName: testName,
+                                    category: newCategory,
+                                });
+                            };
+                            if (existing) {
+                                if (existing.category !== newCategory) {
+                                    if (existing.fixCommit) {
+                                        insert();
+                                    } else {
+                                        updateFlakyCategory(
+                                            existing.ulid,
+                                            newCategory
+                                        );
+                                    }
+                                }
+                            } else {
+                                insert();
+                            }
+                        } else {
+                            if (existing) {
+                                // we previously detected this test as flaky, but we no longer do
+                                markFlakyFixed(commit, Date.now(), testName);
+                            }
+                        }
                     }
                     console.log(project.name + ": Finished running detectors.");
                 }
@@ -105,11 +151,8 @@ export async function findModifiedTests(log: LogResult<DefaultLogFields>) {
         module: string;
         count: number;
     }[] = [];
-    let i = 0;
     for (const commit of log.all) {
         try {
-            console.log(`Processing commit ${i + 1}/${log.all.length}`);
-            i++;
             const diff = await git.diff([
                 commit.hash + "^",
                 commit.hash,
@@ -250,6 +293,7 @@ export async function findModifiedTests(log: LogResult<DefaultLogFields>) {
                                                     .join("\n")
                                         );
                                     }
+                                    break;
                                 }
                                 j--;
                             }

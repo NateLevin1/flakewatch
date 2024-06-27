@@ -10,6 +10,8 @@ Ensure that you have NodeJS and NPM installed. Then, run:
 cd backend && npm install
 ```
 
+Additionally, you must install [this maven-surefire plugin](https://github.com/TestingResearchIllinois/maven-surefire/tree/umaster-tms-w-ext) and put the path to the jar in the `_config.json` file so that the detection scripts will work. Make sure to `git checkout umaster-tms-w-ext` before following the instructions in that repo. **Do not install the plugin to you local maven repository,** as this breaks NonDex.
+
 ## Running the server
 
 ```bash
