@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import { CronJob } from "cron";
 import { flakewatch } from "./flakewatch.js";

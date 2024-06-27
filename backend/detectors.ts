@@ -72,10 +72,11 @@ export async function runDetectors(
 
     const detections: DetectionCause[] = [];
 
+    await detectNonDex(detectorInfo, detections); // nondex cannot be run in parallel with other detectors
+
     (
         await Promise.allSettled([
             // detectIDFlakies(detectorInfo, detections);
-            detectNonDex(detectorInfo, detections),
             detectIsolation(detectorInfo, detections),
             detectOneByOne(detectorInfo, detections),
         ])
@@ -127,9 +128,13 @@ export async function detectNonDex(
         // this is expected and is actually what we want
         const error = e as { stdout: string; stderr: string };
 
-        const isNonDexError = error.stdout.includes(
-            "Unable to execute mojo: There are test failures."
-        );
+        const isNonDexError =
+            error.stdout.includes(
+                "Unable to execute mojo: There are test failures."
+            ) &&
+            !error.stdout.includes(
+                "Error occurred in starting fork, check output in log"
+            );
 
         if (isNonDexError) {
             detections.push("NonDex");
@@ -144,12 +149,22 @@ export async function detectIsolation(
     { qualifiedTestName, path, pl }: DetectorInfo,
     detections: string[]
 ) {
-    const results = await exec(
-        `cd ${path} && mvn test -Dmaven.ext.class.path=${config.mavenSurefireExtPath} -Dsurefire.runOrder=testorder -Dtest=${qualifiedTestName} -Dsurefire.rerunTestsCount=100 ${pl}`
-    );
+    let results;
+    let reportIfFail = false;
+    try {
+        results = await exec(
+            `cd ${path} && mvn test -Dmaven.ext.class.path=${config.mavenSurefireExtPath} -Dsurefire.runOrder=testorder -Dtest=${qualifiedTestName} -Dsurefire.rerunTestsCount=100 ${pl}`
+        );
+    } catch (e) {
+        const error = e as { stdout: string; stderr: string };
+        results = error;
+        reportIfFail = true;
+    }
     const flakyDetected = results.stdout.includes("[WARNING] Flakes:");
     if (flakyDetected) {
         detections.push("Isolation");
+    } else if (reportIfFail) {
+        console.error(results);
     }
 }
 

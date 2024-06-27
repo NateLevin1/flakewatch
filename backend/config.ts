@@ -5,6 +5,8 @@ export type Project = {
     gitURL: string;
     branch: string;
     mvnTestArgs?: string;
+    owner: string;
+    repo: string;
 };
 
 export const projects: Project[] = [];
@@ -24,6 +26,8 @@ export function loadConfig() {
         const project = JSON.parse(
             fs.readFileSync(`./projects/${filename}`).toString()
         );
+        project.owner = project.gitURL.split("/")[3];
+        project.repo = project.gitURL.split("/")[4].replace(".git", "");
         projects.push(project);
     });
 }

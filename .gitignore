@@ -3,3 +3,4 @@ node_modules
 dist
 flakewatch.db*
 clones
+ci-logs

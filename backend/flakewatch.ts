@@ -7,17 +7,22 @@ import {
     updateFlakyCategory,
 } from "./db.js";
 import { type DetectionCause, runDetectors } from "./detectors.js";
-import { projects } from "./config.js";
+import { projects, type Project } from "./config.js";
 import {
     simpleGit,
     CleanOptions,
     type LogResult,
     type DefaultLogFields,
 } from "simple-git";
+import fs from "fs/promises";
 import { Octokit } from "@octokit/rest";
 
 export const git = simpleGit({ baseDir: "clones" }).clean(CleanOptions.FORCE);
-export const octokit: Octokit = new Octokit();
+if (!process.env.GITHUB_TOKEN)
+    console.warn("No GITHUB_TOKEN provided. CI logs will not be downloaded.");
+export const octokit: Octokit = new Octokit({
+    auth: process.env.GITHUB_TOKEN,
+});
 
 export type Flaky = {
     ulid: string;
@@ -68,7 +73,7 @@ export async function flakewatch() {
                     `${project.name}: ${log.all.length} new commit(s) found`
                 );
 
-                // download CI logs
+                downloadCILogs(project, log);
 
                 const modifiedTests = await findModifiedTests(log);
                 if (modifiedTests.length > 0) {
@@ -311,4 +316,45 @@ export async function findModifiedTests(log: LogResult<DefaultLogFields>) {
         }
     }
     return modifiedTests;
+}
+
+async function downloadCILogs(
+    project: Project,
+    log: LogResult<DefaultLogFields>
+) {
+    if (!process.env.GITHUB_TOKEN) return;
+    try {
+        await fs.mkdir(`./ci-logs/${project.name}`);
+    } catch (e) {}
+
+    for (const commit of log.all) {
+        try {
+            const workflowRuns = (
+                await octokit.rest.actions.listWorkflowRunsForRepo({
+                    owner: project.owner,
+                    repo: project.repo,
+                    head_sha: commit.hash,
+                })
+            ).data.workflow_runs;
+            for (const run of workflowRuns) {
+                const runLogs =
+                    await octokit.rest.actions.downloadWorkflowRunLogs({
+                        owner: project.owner,
+                        repo: project.repo,
+                        run_id: run.id,
+                    });
+
+                const date = commit.date.slice(0, 10).replaceAll("-", "");
+                const hash = commit.hash.slice(0, 7);
+
+                fs.writeFile(
+                    `ci-logs/${project.name}/${date}-${hash}-${run.id}.zip`,
+                    Buffer.from(runLogs.data as ArrayBuffer)
+                );
+            }
+        } catch (e) {
+            console.error("Failed to download CI logs:");
+            console.error(e);
+        }
+    }
 }
