@@ -11,11 +11,23 @@ export type DetectorInfo = {
     projectPath: string;
     module: string;
     allTests: string[];
-    path: string;
     pl: string;
 };
 
-export type DetectionCause = "NonDex" | "Isolation" | "OBO";
+export type DetectionCause =
+    | "NonDex"
+    | "Isolation"
+    | "OBO"
+    | "iDFl-OD"
+    | "iDFl-NOD";
+
+const run = async (fn: () => Promise<void>) => {
+    try {
+        await fn();
+    } catch (e) {
+        console.error(e);
+    }
+};
 
 // TODO: base on page 12 of Lam et al https://cs.gmu.edu/~winglam/publications/2020/LamETAL20OOPSLA.pdf
 export async function runDetectors(
@@ -28,12 +40,11 @@ export async function runDetectors(
 
     const testArgs = project.mvnTestArgs ?? "";
     const pl = module ? `-pl ${module}` : "";
-    const path = module ? fullModulePath : projectPath;
 
     // we run `mvn test` and parse its output to get the list of all tests
-    await exec(`cd ${path} && rm -rf target/surefire-reports`);
+    await exec(`cd ${fullModulePath} && rm -rf target/surefire-reports`);
     await exec(
-        `cd ${path} && mvn test ${pl} ${testArgs} -DskipITs -Dmaven.test.failure.ignore=true -DtestFailureIgnore=true`
+        `cd ${projectPath} && mvn test ${pl} ${testArgs} -DskipITs -Dmaven.test.failure.ignore=true -DtestFailureIgnore=true`
     );
     // modulePath/target/surefire-reports/TEST-*.xml has the test cases
     const reportFiles = await fs.readdir(
@@ -66,20 +77,15 @@ export async function runDetectors(
         fullModulePath,
         module,
         allTests,
-        path,
         pl,
     } satisfies DetectorInfo;
 
     const detections: DetectionCause[] = [];
 
-    try {
-        // detectIDFlakies(detectorInfo, detections);
-        await detectNonDex(detectorInfo, detections);
-        await detectIsolation(detectorInfo, detections);
-        await detectOneByOne(detectorInfo, detections);
-    } catch (e) {
-        console.error(e);
-    }
+    await run(async () => await detectIDFlakies(detectorInfo, detections));
+    await run(async () => await detectNonDex(detectorInfo, detections));
+    await run(async () => await detectIsolation(detectorInfo, detections));
+    await run(async () => await detectOneByOne(detectorInfo, detections));
 
     if (detections.length > 0) {
         console.log(
@@ -107,16 +113,21 @@ export async function detectIDFlakies(
                 "/.dtfixingtools/detection-results/flaky-lists.json",
             "utf-8"
         )
-    );
+    ) as { dts: { name: string; type: "OD" | "NOD" }[] };
+    for (const flaky of flakyLists.dts) {
+        if (flaky.name === qualifiedTestName.replace("#", ".")) {
+            detections.push("iDFl-" + flaky.type);
+        }
+    }
 }
 
 export async function detectNonDex(
-    { qualifiedTestName, path }: DetectorInfo,
+    { qualifiedTestName, fullModulePath }: DetectorInfo,
     detections: string[]
 ) {
     try {
         const result = await exec(
-            `cd ${path} && mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName}`
+            `cd ${fullModulePath} && mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName}`
         );
         if (qualifiedTestName.includes("testGetAlphabet")) console.log(result);
     } catch (e) {
@@ -141,14 +152,14 @@ export async function detectNonDex(
 
 // Section 2.3.1 Isolation in Lam et al https://cs.gmu.edu/~winglam/publications/2020/LamETAL20OOPSLA.pdf
 export async function detectIsolation(
-    { qualifiedTestName, path, pl }: DetectorInfo,
+    { qualifiedTestName, projectPath, pl }: DetectorInfo,
     detections: string[]
 ) {
     let results;
     let reportIfFail = false;
     try {
         results = await exec(
-            `cd ${path} && mvn test -Dmaven.ext.class.path=${config.mavenSurefireExtPath} -Dsurefire.runOrder=testorder -Dtest=${qualifiedTestName} -Dsurefire.rerunTestsCount=100 ${pl}`
+            `cd ${projectPath} && mvn test -Dmaven.ext.class.path=${config.mavenSurefireExtPath} -Dsurefire.runOrder=testorder -Dtest=${qualifiedTestName} -Dsurefire.rerunTestsCount=100 ${pl}`
         );
     } catch (e) {
         const error = e as { stdout: string; stderr: string };
@@ -165,14 +176,14 @@ export async function detectIsolation(
 
 // Section 2.3.2 One-By-One in Lam et al https://cs.gmu.edu/~winglam/publications/2020/LamETAL20OOPSLA.pdf
 export async function detectOneByOne(
-    { qualifiedTestName, allTests, path, pl }: DetectorInfo,
+    { qualifiedTestName, allTests, projectPath, pl }: DetectorInfo,
     detections: string[]
 ) {
     // run every test before qualifiedTestName
     for (const test of allTests) {
         if (test === qualifiedTestName) continue;
         const results = await exec(
-            `cd ${path} && mvn test -Dmaven.ext.class.path=${config.mavenSurefireExtPath} -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} ${pl}`
+            `cd ${projectPath} && mvn test -Dmaven.ext.class.path=${config.mavenSurefireExtPath} -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} ${pl}`
         );
 
         const flakyDetected = results.stdout.includes("FAILURE!");
