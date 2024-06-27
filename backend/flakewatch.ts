@@ -39,13 +39,18 @@ export type Flaky = {
 const projectsCurrentlyRunning = new Set<string>();
 
 export async function flakewatchAll() {
-    try {
-        for (const project of projects) {
-            flakewatch(project);
+    for (const project of projects) {
+        try {
+            await flakewatch(project);
+        } catch (e) {
+            console.error(
+                project.name + ": Something went wrong when running flakewatch."
+            );
+            console.error(e);
+        } finally {
+            projectsCurrentlyRunning.delete(project.name);
+            await git.cwd("clones");
         }
-    } catch (e) {
-        console.error("Something went wrong when running flakewatch.");
-        console.error(e);
     }
 }
 
@@ -80,7 +85,7 @@ export async function flakewatch(project: Project, attempt = 0) {
 
     const lastCheckedCommit = getProjectLastCheckedCommit(project.name);
     const log = await git.log({
-        from: lastCheckedCommit,
+        from: lastCheckedCommit ?? "HEAD~",
         to: "HEAD",
     });
     if (!log.latest) return;
