@@ -46,6 +46,7 @@ export async function flakewatch() {
             } catch (e) {
                 await git.cwd("clones/" + project.name);
                 // clone fails if non-empty, so pull instead if it's already cloned
+                await git.reset(["--hard"]);
                 await git.checkout(project.branch);
                 await git.reset(["--hard"]);
                 await git.pull();
@@ -88,6 +89,7 @@ export async function flakewatch() {
 
                     // * Run flakiness detectors
                     for (const { testName, commit, module } of modifiedTests) {
+                        await git.reset(["--hard"]);
                         await git.checkout(commit);
                         let detections: DetectionCause[] = [];
                         try {
@@ -105,6 +107,7 @@ export async function flakewatch() {
                             );
                             console.error(e);
                         }
+                        await git.reset(["--hard"]);
                         await git.checkout(project.branch);
 
                         const existing = getFlaky(testName);
