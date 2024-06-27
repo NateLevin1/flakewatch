@@ -6,7 +6,7 @@ import {
     setProjectLastCheckedCommit,
     updateFlakyCategory,
 } from "./db.js";
-import { type DetectionCause, runDetectors } from "./detectors.js";
+import { type DetectionCause, runDetectors, exec } from "./detectors.js";
 import { projects, type Project } from "./config.js";
 import {
     simpleGit,
@@ -337,6 +337,7 @@ export async function findModifiedTests(log: LogResult<DefaultLogFields>) {
     return modifiedTests;
 }
 
+const failureRegex = /FAILURE!.+in (.+)\n.*?Error(?::|])\s*(\w+)/gi;
 async function downloadCILogs(
     project: Project,
     log: LogResult<DefaultLogFields>
@@ -365,11 +366,55 @@ async function downloadCILogs(
 
                 const date = commit.date.slice(0, 10).replaceAll("-", "");
                 const hash = commit.hash.slice(0, 7);
+                const filePath = `ci-logs/${project.name}/${date}-${hash}-${run.id}.zip`;
 
-                fs.writeFile(
-                    `ci-logs/${project.name}/${date}-${hash}-${run.id}.zip`,
+                await fs.writeFile(
+                    filePath,
                     Buffer.from(runLogs.data as ArrayBuffer)
                 );
+
+                // extract flaky tests from the logs
+                let failures;
+                try {
+                    failures = (await exec(`zipgrep 'FAILURE!' ${filePath}`))
+                        .stdout;
+                } catch (e) {
+                    // no failures, woohoo!
+                    continue;
+                }
+
+                const flakies = failures.matchAll(failureRegex);
+                for (const flaky of flakies) {
+                    const qualifiedTestName = flaky[1] + "#" + flaky[2];
+                    const existing = getFlaky(qualifiedTestName);
+                    const insert = () => {
+                        insertFlaky({
+                            projectURL: project.gitURL,
+                            firstDetectCommit: commit.hash,
+                            firstDetectTime: Date.now(),
+                            modulePath: "UNKNOWN!", // TODO: how can we know this information?
+                            qualifiedTestName,
+                            category: "CI",
+                        });
+                    };
+                    if (existing) {
+                        if (existing.fixCommit) {
+                            insert();
+                        } else {
+                            if (
+                                !existing.category ||
+                                !existing.category.includes("CI")
+                            ) {
+                                updateFlakyCategory(
+                                    existing.ulid,
+                                    (existing.category ?? "") + "&CI"
+                                );
+                            }
+                        }
+                    } else {
+                        insert();
+                    }
+                }
             }
         } catch (e) {
             console.error("Failed to download CI logs:");

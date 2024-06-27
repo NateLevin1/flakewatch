@@ -3,7 +3,7 @@ import { exec as execC } from "child_process";
 import fs from "fs/promises";
 import { type Project, config } from "./config.js";
 
-const exec = util.promisify(execC);
+export const exec = util.promisify(execC);
 
 export type DetectorInfo = {
     qualifiedTestName: string;
