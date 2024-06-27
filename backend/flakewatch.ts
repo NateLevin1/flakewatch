@@ -5,17 +5,19 @@ import {
     markFlakyFixed,
     setProjectLastCheckedCommit,
     updateFlakyCategory,
-} from "./db";
-import { DetectionCause, runDetectors } from "./detectors";
-import { projects } from "./config";
+} from "./db.js";
+import { type DetectionCause, runDetectors } from "./detectors.js";
+import { projects } from "./config.js";
 import {
     simpleGit,
     CleanOptions,
-    LogResult,
-    DefaultLogFields,
+    type LogResult,
+    type DefaultLogFields,
 } from "simple-git";
+import { Octokit } from "@octokit/rest";
 
 export const git = simpleGit({ baseDir: "clones" }).clean(CleanOptions.FORCE);
+export const octokit: Octokit = new Octokit();
 
 export type Flaky = {
     ulid: string;
@@ -66,6 +68,8 @@ export async function flakewatch() {
                     `${project.name}: ${log.all.length} new commit(s) found`
                 );
 
+                // download CI logs
+
                 const modifiedTests = await findModifiedTests(log);
                 if (modifiedTests.length > 0) {
                     const sha = log.latest.hash.slice(0, 7);
@@ -84,7 +88,7 @@ export async function flakewatch() {
                         try {
                             detections = await runDetectors(
                                 testName,
-                                `${__dirname}/clones/${project.name}`,
+                                `${import.meta.dirname}/clones/${project.name}`,
                                 module,
                                 project
                             );

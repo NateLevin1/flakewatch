@@ -1,7 +1,7 @@
 import util from "util";
 import { exec as execC } from "child_process";
 import fs from "fs/promises";
-import { Project, config } from "./config";
+import { type Project, config } from "./config.js";
 
 const exec = util.promisify(execC);
 

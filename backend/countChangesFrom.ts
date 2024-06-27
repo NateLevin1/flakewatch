@@ -1,5 +1,5 @@
 // run this as a script: cd backend && npx esno countChangesFrom.ts <url> <commit> <test> (checkForCommit)
-import { findModifiedTests, git } from "./flakewatch";
+import { findModifiedTests, git } from "./flakewatch.js";
 
 const url = process.argv[2];
 const commit = process.argv[3];

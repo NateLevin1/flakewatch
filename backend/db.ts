@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { ulid } from "ulid";
-import { Flaky } from "./flakewatch";
+import { type Flaky } from "./flakewatch.js";
 
 let db: Database.Database;
 

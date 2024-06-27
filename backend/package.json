@@ -1,5 +1,6 @@
 {
     "dependencies": {
+        "@octokit/rest": "^21.0.0",
         "better-sqlite3": "^11.0.0",
         "cron": "^3.1.7",
         "esno": "^4.7.0",
@@ -12,6 +13,7 @@
     "version": "1.0.0",
     "description": "Live tracking of flaky tests in large public repositories.",
     "main": "index.js",
+    "type": "module",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
         "dev": "esno index.ts",

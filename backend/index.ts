@@ -1,8 +1,13 @@
 import express from "express";
 import { CronJob } from "cron";
-import { flakewatch } from "./flakewatch";
-import { getActiveFlakies, toCsv, setup as setupDB, getAllFlakies } from "./db";
-import { config, loadConfig, projects } from "./config";
+import { flakewatch } from "./flakewatch.js";
+import {
+    getActiveFlakies,
+    toCsv,
+    setup as setupDB,
+    getAllFlakies,
+} from "./db.js";
+import { config, loadConfig, projects } from "./config.js";
 
 const app = express();
 loadConfig();

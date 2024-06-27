@@ -1,4 +1,4 @@
 {
     "port": 3000,
-    "mavenSurefirePath": "path/to/surefire-changing-maven-extension-1.0-SNAPSHOT.jar"
+    "mavenSurefireExtPath": "/Users/sharondlevin/Downloads/surefire-changing-maven-extension-1.0-SNAPSHOT.jar"
 }
