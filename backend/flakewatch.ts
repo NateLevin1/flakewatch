@@ -159,7 +159,11 @@ export async function flakewatch(project: Project, attempt = 0) {
                             if (existing.fixCommit) {
                                 insert();
                             } else {
-                                updateFlakyCategory(existing.ulid, newCategory);
+                                updateFlakyCategory(
+                                    existing.ulid,
+                                    existing.category ?? "",
+                                    newCategory
+                                );
                             }
                         }
                     } else {
@@ -412,7 +416,8 @@ async function downloadCILogs(
                             ) {
                                 updateFlakyCategory(
                                     existing.ulid,
-                                    (existing.category ?? "") + "&CI"
+                                    existing.category ?? "",
+                                    "CI"
                                 );
                             }
                         }

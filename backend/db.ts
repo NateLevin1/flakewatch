@@ -87,9 +87,21 @@ export function markFlakyFixed(
     ).run(fixCommit, fixTime, qualifiedTestName);
 }
 
-export function updateFlakyCategory(ulid: string, category: string) {
+export function updateFlakyCategory(
+    ulid: string,
+    oldCategory: string,
+    category: string
+) {
+    // merge categories
+    const newCategory = oldCategory
+        .split("&")
+        .concat(category.split("&"))
+        // remove duplicates
+        .filter((s) => s.length > 0)
+        .filter((value, index, self) => self.indexOf(value) === index)
+        .join("&");
     db.prepare("UPDATE flakies SET category = ? WHERE ulid = ?").run(
-        category,
+        newCategory,
         ulid
     );
 }
