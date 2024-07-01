@@ -4,3 +4,4 @@ dist
 flakewatch.db*
 clones
 ci-logs
+.env
