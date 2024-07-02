@@ -25,10 +25,19 @@ export const octokit: Octokit = new Octokit({
 flakewatch(projectInfo);
 
 export async function flakewatch(project: ProjectInfo) {
+    console.log("Started flakewatch.");
     let result: FlakewatchResults = {
         detections: [],
         ciDetections: [],
     } satisfies FlakewatchResults;
+
+    try {
+        await fs.unlink("/home/flakewatch/flakewatch-results.json");
+        await fs.unlink(
+            "/home/flakewatch/clone/" + project.name + "/.git/index.lock"
+        );
+    } catch (e) {}
+
     try {
         // * Update the project to the latest commit
         try {
