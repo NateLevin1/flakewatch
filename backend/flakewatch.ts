@@ -65,7 +65,8 @@ export async function flakewatch(project: ProjectInfo) {
                 `${project.name}: ${log.all.length} new commit(s) found`
             );
 
-            const ciLogsPromise = await downloadCILogs(project, log);
+            result.ciDetections = await downloadCILogs(project, log);
+            console.log(result.ciDetections);
 
             const modifiedTests = await findModifiedTests(log);
             if (modifiedTests.length > 0) {
@@ -108,9 +109,6 @@ export async function flakewatch(project: ProjectInfo) {
                         sha: commit,
                     });
                 }
-                result.ciDetections = result.ciDetections.concat(
-                    await ciLogsPromise
-                );
                 console.log(project.name + ": Finished running detectors.");
             }
         }
@@ -347,6 +345,7 @@ async function downloadCILogs(
                         testName: qualifiedTestName,
                         sha: commit.hash,
                     });
+                    console.log("result: ", result);
                 }
             }
         } catch (e) {
