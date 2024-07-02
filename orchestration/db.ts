@@ -1,6 +1,17 @@
 import Database from "better-sqlite3";
 import { ulid } from "ulid";
-import { type Flaky } from "./flakewatch.js";
+
+export type Flaky = {
+    ulid: string;
+    projectURL: string;
+    firstDetectCommit: string;
+    firstDetectTime: number;
+    fixCommit?: string;
+    fixTime?: number;
+    modulePath: string;
+    qualifiedTestName: string;
+    category?: string;
+};
 
 let db: Database.Database;
 

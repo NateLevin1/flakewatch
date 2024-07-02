@@ -1,4 +1,0 @@
-{
-    "port": 8080,
-    "mavenSurefireExtPath": "path/to/surefire-changing-maven-extension-1.0-SNAPSHOT.jar"
-}

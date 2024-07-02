@@ -1,0 +1,57 @@
+# Pull base Ubuntu image
+FROM ubuntu:24.04
+
+# Install sofware properties common
+RUN \
+  apt-get update && \
+  apt-get install -y software-properties-common && \
+# Install openJDK8
+  apt-get update && \
+  apt-get install -y openjdk-8-jdk && \
+# Install git
+  apt-get install -y git && \
+  git --version && \
+# Install misc
+  apt-get update && \
+  apt-get install -y sudo && \
+  apt-get install -y vim && \
+  apt-get install -y wget && \
+  apt-get install -y curl && \
+# Install NodeJS
+  apt-get update && \
+  apt-get install -y npm software-properties-common && \
+  npm install npm@latest -g && \
+  npm install n -g && \
+  n lts
+
+# Use openJDK8 as default
+ENV JAVA_HOME /usr/lib/jvm/java-8-openjdk-amd64/
+
+# Set up user (flakewatch)
+RUN useradd -ms /bin/bash -c "flakewatch" flakewatch && echo "flakewatch:docker" | chpasswd && adduser flakewatch sudo
+USER flakewatch
+
+WORKDIR /home/flakewatch/
+
+# Install Maven 3.5.4 locally for user
+RUN \
+  wget https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.5.4/apache-maven-3.5.4-bin.tar.gz && \
+  tar -xzf apache-maven-3.5.4-bin.tar.gz && mv apache-maven-3.5.4/ apache-maven/
+  
+RUN \
+  echo 'export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/' >> ~/.bashrc && \
+  echo 'export M2_HOME=${HOME}/apache-maven' >> ~/.bashrc && \
+  echo 'export MAVEN_HOME=${HOME}/apache-maven' >> ~/.bashrc && \
+  echo 'export PATH=${M2_HOME}/bin:${PATH}' >> ~/.bashrc
+
+# Install detector tooling
+# - MavenSurefire extension
+RUN git clone 'https://github.com/TestingResearchIllinois/maven-surefire.git'
+RUN cd maven-surefire && \
+  git checkout umaster-tms-w-ext && \
+  export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-arm64/ && \
+  /home/flakewatch/apache-maven/bin/mvn install -DskipTests -Drat.skip && \
+  cp surefire-changing-maven-extension/target/surefire-changing-maven-extension-1.0-SNAPSHOT.jar /home/flakewatch/
+
+RUN git clone 'https://github.com/NateLevin1/flakewatch.git' && \
+  cd flakewatch/backend && npm install

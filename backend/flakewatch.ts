@@ -1,13 +1,4 @@
-import {
-    getFlaky,
-    getProjectLastCheckedCommit,
-    insertFlaky,
-    markFlakyFixed,
-    setProjectLastCheckedCommit,
-    updateFlakyCategory,
-} from "./db.js";
-import { type DetectionCause, runDetectors, exec } from "./detectors.js";
-import { projects, type Project } from "./config.js";
+import { runDetectors, exec } from "./detectors.js";
 import {
     simpleGit,
     CleanOptions,
@@ -16,168 +7,110 @@ import {
 } from "simple-git";
 import fs from "fs/promises";
 import { Octokit } from "@octokit/rest";
+import type {
+    DetectionCause,
+    FlakewatchResults,
+    ProjectInfo,
+} from "./shared.js";
+
+if (!process.argv[2]) throw new Error("Missing project info argument");
+const projectInfo = JSON.parse(process.argv[2]) as ProjectInfo;
 
 export const git = simpleGit({ baseDir: "clones" }).clean(CleanOptions.FORCE);
-if (!process.env.GITHUB_TOKEN)
-    console.warn("No GITHUB_TOKEN provided. CI logs will not be downloaded.");
+
 export const octokit: Octokit = new Octokit({
-    auth: process.env.GITHUB_TOKEN,
+    auth: projectInfo.githubToken,
 });
 
-export type Flaky = {
-    ulid: string;
-    projectURL: string;
-    firstDetectCommit: string;
-    firstDetectTime: number;
-    fixCommit?: string;
-    fixTime?: number;
-    modulePath: string;
-    qualifiedTestName: string;
-    category?: string;
-};
+flakewatch(projectInfo);
 
-const projectsCurrentlyRunning = new Set<string>();
-
-export async function flakewatchAll() {
-    for (const project of projects) {
-        try {
-            await flakewatch(project);
-        } catch (e) {
-            console.error(
-                project.name + ": Something went wrong when running flakewatch."
-            );
-            console.error(e);
-        } finally {
-            projectsCurrentlyRunning.delete(project.name);
-            await git.cwd("clones");
-        }
-    }
-}
-
-export async function flakewatch(project: Project, attempt = 0) {
-    if (projectsCurrentlyRunning.has(project.name)) {
-        console.error(
-            `${project.name}: Flakewatch triggered while already running. Will retry later.`
-        );
-        if (attempt < 10) {
-            setTimeout(() => flakewatch(project, attempt + 1), 300_000);
-        } else {
-            console.error(
-                `${project.name}: Flakewatch failed to run after 10 attempts. Something is very wrong - data may never get to active.`
-            );
-        }
-        return;
-    }
-    projectsCurrentlyRunning.add(project.name);
-
-    // * Update the project to the latest commit
+export async function flakewatch(project: ProjectInfo) {
+    let result = {} as FlakewatchResults;
     try {
-        await git.clone(project.gitURL, project.name);
-        await git.cwd("clones/" + project.name);
-    } catch (e) {
-        await git.cwd("clones/" + project.name);
-        // clone fails if non-empty, so pull instead if it's already cloned
-        await git.reset(["--hard"]);
-        await git.checkout(project.branch);
-        await git.reset(["--hard"]);
-        await git.pull();
-    }
+        // * Update the project to the latest commit
+        try {
+            await git.clone(project.gitURL, project.name);
+            await git.cwd("clones/" + project.name);
+        } catch (e) {
+            await git.cwd("clones/" + project.name);
+            // clone fails if non-empty, so pull instead if it's already cloned
+            await git.reset(["--hard"]);
+            await git.checkout(project.branch);
+            await git.reset(["--hard"]);
+            await git.pull();
+        }
 
-    const lastCheckedCommit = getProjectLastCheckedCommit(project.name);
-    const log = await git.log({
-        from: lastCheckedCommit ?? "HEAD~",
-        to: "HEAD",
-    });
-    if (!log.latest) return;
+        const lastCheckedCommit = project.lastCheckedCommit;
+        const log = await git.log({
+            from: lastCheckedCommit ?? "HEAD~",
+            to: "HEAD",
+        });
+        if (!log.latest) return;
 
-    if (!lastCheckedCommit) {
-        setProjectLastCheckedCommit(project.name, log.latest.hash);
-        console.log(
-            `${project.name}: Initializing at commit ${log.latest.hash}`
-        );
-        return;
-    }
-
-    const newCommitsExist = log.latest.hash !== lastCheckedCommit;
-    if (newCommitsExist) {
-        setProjectLastCheckedCommit(project.name, log.latest.hash);
-        console.log(`${project.name}: ${log.all.length} new commit(s) found`);
-
-        downloadCILogs(project, log);
-
-        const modifiedTests = await findModifiedTests(log);
-        if (modifiedTests.length > 0) {
-            const sha = log.latest.hash.slice(0, 7);
+        if (!lastCheckedCommit) {
+            result.newLastCheckedCommit = log.latest.hash;
             console.log(
-                `${project.name}: ${
-                    modifiedTests.length
-                } tests modified up to commit ${sha}: ${modifiedTests
-                    .map((s) => s.testName.split(".").at(-1))
-                    .join(", ")}`
+                `${project.name}: Initializing at commit ${log.latest.hash}`
+            );
+            return;
+        }
+
+        const newCommitsExist = log.latest.hash !== lastCheckedCommit;
+        if (newCommitsExist) {
+            result.newLastCheckedCommit = log.latest.hash;
+            console.log(
+                `${project.name}: ${log.all.length} new commit(s) found`
             );
 
-            // * Run flakiness detectors
-            for (const { testName, commit, module } of modifiedTests) {
-                await git.reset(["--hard"]);
-                await git.checkout(commit);
-                let detections: DetectionCause[] = [];
-                try {
-                    detections = await runDetectors(
+            const ciLogsPromise = downloadCILogs(project, log, result);
+
+            const modifiedTests = await findModifiedTests(log);
+            if (modifiedTests.length > 0) {
+                const sha = log.latest.hash.slice(0, 7);
+                console.log(
+                    `${project.name}: ${
+                        modifiedTests.length
+                    } tests modified up to commit ${sha}: ${modifiedTests
+                        .map((s) => s.testName.split(".").at(-1))
+                        .join(", ")}`
+                );
+
+                // * Run flakiness detectors
+                for (const { testName, commit, module } of modifiedTests) {
+                    await git.reset(["--hard"]);
+                    await git.checkout(commit);
+                    let detections: DetectionCause[] = [];
+                    try {
+                        detections = await runDetectors(
+                            testName,
+                            `${import.meta.dirname}/clones/${project.name}`,
+                            module,
+                            project
+                        );
+                    } catch (e) {
+                        console.error(
+                            project.name +
+                                ": Something went wrong when running detectors for " +
+                                testName
+                        );
+                        console.error(e);
+                    }
+                    await git.reset(["--hard"]);
+                    await git.checkout(project.branch);
+
+                    result.detections.push({
                         testName,
-                        `${import.meta.dirname}/clones/${project.name}`,
+                        detections,
                         module,
-                        project
-                    );
-                } catch (e) {
-                    console.error(
-                        project.name +
-                            ": Something went wrong when running detectors for " +
-                            testName
-                    );
-                    console.error(e);
+                        sha: commit,
+                    });
                 }
-                await git.reset(["--hard"]);
-                await git.checkout(project.branch);
-
-                const existing = getFlaky(testName);
-
-                if (detections.length > 0) {
-                    // add to DB
-                    const newCategory = detections.join("&");
-                    const insert = () => {
-                        insertFlaky({
-                            projectURL: project.gitURL,
-                            firstDetectCommit: commit,
-                            firstDetectTime: Date.now(),
-                            modulePath: module,
-                            qualifiedTestName: testName,
-                            category: newCategory,
-                        });
-                    };
-                    if (existing) {
-                        if (existing.category !== newCategory) {
-                            if (existing.fixCommit) {
-                                insert();
-                            } else {
-                                updateFlakyCategory(
-                                    existing.ulid,
-                                    existing.category ?? "",
-                                    newCategory
-                                );
-                            }
-                        }
-                    } else {
-                        insert();
-                    }
-                } else {
-                    if (existing) {
-                        // we previously detected this test as flaky, but we no longer do
-                        markFlakyFixed(commit, Date.now(), testName);
-                    }
-                }
+                await ciLogsPromise;
+                console.log(project.name + ": Finished running detectors.");
             }
-            console.log(project.name + ": Finished running detectors.");
         }
+    } finally {
+        fs.writeFile("~/flakewatch-results.json", JSON.stringify(result));
     }
 }
 
@@ -348,10 +281,12 @@ export async function findModifiedTests(log: LogResult<DefaultLogFields>) {
 
 const failureRegex = /FAILURE!.+in (.+)\n.*?Error(?::|])\s*(\w+)/gi;
 async function downloadCILogs(
-    project: Project,
-    log: LogResult<DefaultLogFields>
+    project: ProjectInfo,
+    log: LogResult<DefaultLogFields>,
+    result: FlakewatchResults
 ) {
-    if (!process.env.GITHUB_TOKEN) return;
+    if (!project.githubToken) return;
+
     try {
         await fs.mkdir(`./ci-logs/${project.name}`);
     } catch (e) {}
@@ -395,35 +330,10 @@ async function downloadCILogs(
                 const flakies = failures.matchAll(failureRegex);
                 for (const flaky of flakies) {
                     const qualifiedTestName = flaky[1] + "#" + flaky[2];
-                    const existing = getFlaky(qualifiedTestName);
-                    const insert = () => {
-                        insertFlaky({
-                            projectURL: project.gitURL,
-                            firstDetectCommit: commit.hash,
-                            firstDetectTime: Date.now(),
-                            modulePath: "UNKNOWN!", // TODO: how can we know this information?
-                            qualifiedTestName,
-                            category: "CI",
-                        });
-                    };
-                    if (existing) {
-                        if (existing.fixCommit) {
-                            insert();
-                        } else {
-                            if (
-                                !existing.category ||
-                                !existing.category.includes("CI")
-                            ) {
-                                updateFlakyCategory(
-                                    existing.ulid,
-                                    existing.category ?? "",
-                                    "CI"
-                                );
-                            }
-                        }
-                    } else {
-                        insert();
-                    }
+                    result.ciDetections.push({
+                        testName: qualifiedTestName,
+                        sha: commit.hash,
+                    });
                 }
             }
         } catch (e) {

@@ -1,7 +1,7 @@
 import "dotenv/config";
+
 import express from "express";
 import { CronJob } from "cron";
-import { flakewatchAll } from "./flakewatch.js";
 import {
     getActiveFlakies,
     toCsv,
@@ -9,6 +9,10 @@ import {
     getAllFlakies,
 } from "./db.js";
 import { config, loadConfig, projects } from "./config.js";
+import { orchestrate } from "./orchestrate.js";
+
+if (!process.env.GITHUB_TOKEN)
+    console.warn("No GITHUB_TOKEN provided. CI logs will not be downloaded.");
 
 const app = express();
 loadConfig();
@@ -37,5 +41,5 @@ app.listen(config.port, () => {
             projects.map((p) => p.name).join(", ") +
             "."
     );
-    new CronJob("0 * * * *", flakewatchAll, null, true, null, null, true);
+    new CronJob("0 */12 * * *", orchestrate, null, true, null, null, true);
 });
