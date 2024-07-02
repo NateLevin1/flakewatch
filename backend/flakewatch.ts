@@ -28,6 +28,9 @@ flakewatch(projectInfo);
 
 export async function flakewatch(project: ProjectInfo) {
     let result = {} as FlakewatchResults;
+    await fs.mkdir("/home/flakewatch/clone/" + project.name, {
+        recursive: true,
+    });
     try {
         // * Update the project to the latest commit
         try {
