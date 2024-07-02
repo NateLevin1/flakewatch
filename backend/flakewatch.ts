@@ -65,7 +65,7 @@ export async function flakewatch(project: ProjectInfo) {
                 `${project.name}: ${log.all.length} new commit(s) found`
             );
 
-            const ciLogsPromise = downloadCILogs(project, log, result);
+            const ciLogsPromise = downloadCILogs(project, log);
 
             const modifiedTests = await findModifiedTests(log);
             if (modifiedTests.length > 0) {
@@ -108,7 +108,9 @@ export async function flakewatch(project: ProjectInfo) {
                         sha: commit,
                     });
                 }
-                await ciLogsPromise;
+                result.ciDetections = result.ciDetections.concat(
+                    await ciLogsPromise
+                );
                 console.log(project.name + ": Finished running detectors.");
             }
         }
@@ -288,10 +290,11 @@ export async function findModifiedTests(log: LogResult<DefaultLogFields>) {
 const failureRegex = /FAILURE!.+in (.+)\n.*?Error(?::|])\s*(\w+)/gi;
 async function downloadCILogs(
     project: ProjectInfo,
-    log: LogResult<DefaultLogFields>,
-    result: FlakewatchResults
+    log: LogResult<DefaultLogFields>
 ) {
-    if (!project.githubToken) return;
+    if (!project.githubToken) return [];
+
+    const result = [] as FlakewatchResults["ciDetections"];
 
     await fs.mkdir(`/home/flakewatch/ci-logs/${project.name}`, {
         recursive: true,
@@ -339,7 +342,7 @@ async function downloadCILogs(
                     console.log(
                         `${project.name}: ${qualifiedTestName} failed in CI`
                     );
-                    result.ciDetections.push({
+                    result.push({
                         testName: qualifiedTestName,
                         sha: commit.hash,
                     });
@@ -350,4 +353,5 @@ async function downloadCILogs(
             console.error(e);
         }
     }
+    return result;
 }
