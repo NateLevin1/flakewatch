@@ -37,7 +37,7 @@ async function orchestrateProject(project: Project) {
         ...project,
         lastCheckedCommit: getProjectLastCheckedCommit(project.name),
         githubToken: process.env.GITHUB_TOKEN!,
-    } satisfies ProjectInfo);
+    } satisfies ProjectInfo).replaceAll('"', '\\"');
 
     try {
         const startCmd = `/bin/bash -c "cd /home/flakewatch/flakewatch/backend && git pull && npm install && npm start -- '${passedInInfo}'"`;

@@ -16,7 +16,9 @@ import type {
 if (!process.argv[2]) throw new Error("Missing project info argument");
 const projectInfo = JSON.parse(process.argv[2]) as ProjectInfo;
 
-export const git = simpleGit({ baseDir: "~/clone" }).clean(CleanOptions.FORCE);
+export const git = simpleGit({ baseDir: "/home/flakewatch/clone" }).clean(
+    CleanOptions.FORCE
+);
 
 export const octokit: Octokit = new Octokit({
     auth: projectInfo.githubToken,
@@ -30,9 +32,9 @@ export async function flakewatch(project: ProjectInfo) {
         // * Update the project to the latest commit
         try {
             await git.clone(project.gitURL, project.name);
-            await git.cwd("~/clone/" + project.name);
+            await git.cwd("/home/flakewatch/clone/" + project.name);
         } catch (e) {
-            await git.cwd("~/clone/" + project.name);
+            await git.cwd("/home/flakewatch/clone/" + project.name);
             // clone fails if non-empty, so pull instead if it's already cloned
             await git.reset(["--hard"]);
             await git.checkout(project.branch);
@@ -83,7 +85,7 @@ export async function flakewatch(project: ProjectInfo) {
                     try {
                         detections = await runDetectors(
                             testName,
-                            `~/clone/${project.name}`,
+                            `/home/flakewatch/clone/${project.name}`,
                             module,
                             project
                         );
