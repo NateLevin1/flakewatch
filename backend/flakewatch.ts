@@ -65,7 +65,7 @@ export async function flakewatch(project: ProjectInfo) {
                 `${project.name}: ${log.all.length} new commit(s) found`
             );
 
-            const ciLogsPromise = downloadCILogs(project, log);
+            const ciLogsPromise = await downloadCILogs(project, log);
 
             const modifiedTests = await findModifiedTests(log);
             if (modifiedTests.length > 0) {
