@@ -333,6 +333,9 @@ async function downloadCILogs(
                 const flakies = failures.matchAll(failureRegex);
                 for (const flaky of flakies) {
                     const qualifiedTestName = flaky[1] + "#" + flaky[2];
+                    console.log(
+                        `${project.name}: ${qualifiedTestName} failed in CI`
+                    );
                     result.ciDetections.push({
                         testName: qualifiedTestName,
                         sha: commit.hash,
