@@ -25,7 +25,10 @@ export const octokit: Octokit = new Octokit({
 flakewatch(projectInfo);
 
 export async function flakewatch(project: ProjectInfo) {
-    let result = {} as FlakewatchResults;
+    let result: FlakewatchResults = {
+        detections: [],
+        ciDetections: [],
+    } satisfies FlakewatchResults;
     try {
         // * Update the project to the latest commit
         try {
