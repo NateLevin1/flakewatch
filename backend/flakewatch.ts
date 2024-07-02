@@ -16,7 +16,7 @@ import type {
 if (!process.argv[2]) throw new Error("Missing project info argument");
 const projectInfo = JSON.parse(process.argv[2]) as ProjectInfo;
 
-export const git = simpleGit({ baseDir: "clones" }).clean(CleanOptions.FORCE);
+export const git = simpleGit({ baseDir: "~/clone" }).clean(CleanOptions.FORCE);
 
 export const octokit: Octokit = new Octokit({
     auth: projectInfo.githubToken,
@@ -30,9 +30,9 @@ export async function flakewatch(project: ProjectInfo) {
         // * Update the project to the latest commit
         try {
             await git.clone(project.gitURL, project.name);
-            await git.cwd("clones/" + project.name);
+            await git.cwd("~/clone/" + project.name);
         } catch (e) {
-            await git.cwd("clones/" + project.name);
+            await git.cwd("~/clone/" + project.name);
             // clone fails if non-empty, so pull instead if it's already cloned
             await git.reset(["--hard"]);
             await git.checkout(project.branch);
@@ -83,7 +83,7 @@ export async function flakewatch(project: ProjectInfo) {
                     try {
                         detections = await runDetectors(
                             testName,
-                            `${import.meta.dirname}/clones/${project.name}`,
+                            `~/clone/${project.name}`,
                             module,
                             project
                         );
@@ -288,7 +288,7 @@ async function downloadCILogs(
     if (!project.githubToken) return;
 
     try {
-        await fs.mkdir(`./ci-logs/${project.name}`);
+        await fs.mkdir(`~/ci-logs/${project.name}`);
     } catch (e) {}
 
     for (const commit of log.all) {
@@ -310,7 +310,7 @@ async function downloadCILogs(
 
                 const date = commit.date.slice(0, 10).replaceAll("-", "");
                 const hash = commit.hash.slice(0, 7);
-                const filePath = `ci-logs/${project.name}/${date}-${hash}-${run.id}.zip`;
+                const filePath = `~/ci-logs/${project.name}/${date}-${hash}-${run.id}.zip`;
 
                 await fs.writeFile(
                     filePath,

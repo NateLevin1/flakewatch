@@ -8,14 +8,14 @@
     "name": "flakewatch-backend",
     "version": "1.0.0",
     "description": "Live tracking of flaky tests in large public repositories.",
-    "main": "index.js",
+    "main": "flakewatch.js",
     "type": "module",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "dev": "esno index.ts",
-        "start": "npm run build && node dist/index.js",
+        "dev": "esno flakewatch.ts",
+        "start": "npm run build && node dist/flakewatch.js",
         "build": "tsc",
-        "postinstall": "mkdir -p clones && mkdir -p ci-logs"
+        "postinstall": "mkdir -p ~/clone && mkdir -p ~/ci-logs"
     },
     "repository": {
         "type": "git",
