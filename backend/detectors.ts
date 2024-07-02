@@ -152,7 +152,7 @@ export async function detectIsolation(
     let reportIfFail = false;
     try {
         results = await exec(
-            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='~/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${qualifiedTestName} -Dsurefire.rerunTestsCount=100 ${pl}`
+            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${qualifiedTestName} -Dsurefire.rerunTestsCount=100 ${pl}`
         );
     } catch (e) {
         const error = e as { stdout: string; stderr: string };
@@ -176,7 +176,7 @@ export async function detectOneByOne(
     for (const test of allTests) {
         if (test === qualifiedTestName) continue;
         const results = await exec(
-            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='~/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} ${pl}`
+            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} ${pl}`
         );
 
         const flakyDetected = results.stdout.includes("FAILURE!");

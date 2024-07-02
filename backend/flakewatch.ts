@@ -16,9 +16,7 @@ import type {
 if (!process.argv[2]) throw new Error("Missing project info argument");
 const projectInfo = JSON.parse(process.argv[2]) as ProjectInfo;
 
-export const git = simpleGit({ baseDir: "/home/flakewatch/clone" }).clean(
-    CleanOptions.FORCE
-);
+export const git = simpleGit({ baseDir: "/home/flakewatch/clone" });
 
 export const octokit: Octokit = new Octokit({
     auth: projectInfo.githubToken,
@@ -112,7 +110,10 @@ export async function flakewatch(project: ProjectInfo) {
             }
         }
     } finally {
-        fs.writeFile("~/flakewatch-results.json", JSON.stringify(result));
+        fs.writeFile(
+            "/home/flakewatch/flakewatch-results.json",
+            JSON.stringify(result)
+        );
     }
 }
 
@@ -289,9 +290,9 @@ async function downloadCILogs(
 ) {
     if (!project.githubToken) return;
 
-    try {
-        await fs.mkdir(`~/ci-logs/${project.name}`);
-    } catch (e) {}
+    await fs.mkdir(`/home/flakewatch/ci-logs/${project.name}`, {
+        recursive: true,
+    });
 
     for (const commit of log.all) {
         try {
@@ -312,7 +313,7 @@ async function downloadCILogs(
 
                 const date = commit.date.slice(0, 10).replaceAll("-", "");
                 const hash = commit.hash.slice(0, 7);
-                const filePath = `~/ci-logs/${project.name}/${date}-${hash}-${run.id}.zip`;
+                const filePath = `/home/flakewatch/ci-logs/${project.name}/${date}-${hash}-${run.id}.zip`;
 
                 await fs.writeFile(
                     filePath,

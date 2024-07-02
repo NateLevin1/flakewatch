@@ -1,4 +1,4 @@
-// This is the type that ~/flakewatch-results.json in the container should match
+// This is the type that /home/flakewatch/flakewatch-results.json in the container should match
 // Both backend/shared.ts and orchestration/shared.ts contain this same file
 export type FlakewatchResults = {
     newLastCheckedCommit?: string;
