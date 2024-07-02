@@ -115,7 +115,8 @@ export async function flakewatch(project: ProjectInfo) {
             }
         }
     } finally {
-        fs.writeFile(
+        console.log(result);
+        await fs.writeFile(
             "/home/flakewatch/flakewatch-results.json",
             JSON.stringify(result)
         );
