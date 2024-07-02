@@ -66,7 +66,6 @@ export async function flakewatch(project: ProjectInfo) {
             );
 
             result.ciDetections = await downloadCILogs(project, log);
-            console.log(result.ciDetections);
 
             const modifiedTests = await findModifiedTests(log);
             if (modifiedTests.length > 0) {
@@ -113,7 +112,6 @@ export async function flakewatch(project: ProjectInfo) {
             }
         }
     } finally {
-        console.log(result);
         await fs.writeFile(
             "/home/flakewatch/flakewatch-results.json",
             JSON.stringify(result)
@@ -338,6 +336,9 @@ async function downloadCILogs(
                 const flakies = failures.matchAll(failureRegex);
                 for (const flaky of flakies) {
                     const qualifiedTestName = flaky[1] + "#" + flaky[2];
+                    if (result.find((r) => r.testName === qualifiedTestName))
+                        continue; // duplicate
+
                     console.log(
                         `${project.name}: ${qualifiedTestName} failed in CI`
                     );
@@ -345,7 +346,6 @@ async function downloadCILogs(
                         testName: qualifiedTestName,
                         sha: commit.hash,
                     });
-                    console.log("result: ", result);
                 }
             }
         } catch (e) {
