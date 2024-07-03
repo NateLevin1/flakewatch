@@ -106,17 +106,17 @@ export async function runDetectors(
                 " is flaky. Reason(s): " +
                 detections.join(", ")
         );
-    }
 
-    const zip = new AdmZip();
-    for (const { cause, content } of logFiles) {
-        zip.addFile(cause + ".log", Buffer.from(content));
+        const zip = new AdmZip();
+        for (const { cause, content } of logFiles) {
+            zip.addFile(cause + ".log", Buffer.from(content));
+        }
+        const hash = commitSha.slice(0, 7);
+        const testName = qualifiedTestName.replaceAll(".", "-");
+        await zip.writeZipPromise(
+            `/home/flakewatch/failure-logs/${hash}-${testName}.zip`
+        );
     }
-    const hash = commitSha.slice(0, 7);
-    const testName = qualifiedTestName.replaceAll(".", "-");
-    await zip.writeZipPromise(
-        `/home/flakewatch/failure-logs/${hash}-${testName}.zip`
-    );
 
     return detections;
 }
