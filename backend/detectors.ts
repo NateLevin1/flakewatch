@@ -110,13 +110,24 @@ export async function runDetectors(
 
     const zip = new AdmZip();
     for (const { cause, content } of logFiles) {
+        console.log("Adding log file for " + cause);
         zip.addFile(cause + ".log", Buffer.from(content));
     }
     const hash = commitSha.slice(0, 7);
     const testName = qualifiedTestName.replaceAll(".", "-");
+    console.log(
+        "Writing zip to /home/flakewatch/failures-logs/" +
+            hash +
+            "-" +
+            testName +
+            ".zip"
+    );
     await zip.writeZipPromise(
         `/home/flakewatch/failures-logs/${hash}-${testName}.zip`
     );
+
+    console.log("Sleeping for 5 minutes for debugging");
+    await new Promise((resolve) => setTimeout(resolve, 5 * 60 * 1000));
 
     return detections;
 }
