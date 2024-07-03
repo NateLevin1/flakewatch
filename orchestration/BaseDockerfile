@@ -59,3 +59,7 @@ RUN cd maven-surefire && \
 
 RUN git clone 'https://github.com/NateLevin1/flakewatch.git' && \
   cd flakewatch/backend && npm install
+
+RUN mkdir -p /home/flakewatch/clone && \
+  mkdir -p /home/flakewatch/ci-logs
+  
