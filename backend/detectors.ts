@@ -126,7 +126,7 @@ export async function detectNonDex(
 ) {
     try {
         const result = await exec(
-            `cd ${fullModulePath} && mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName}`
+            `cd ${fullModulePath} && mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -B`
         );
         if (qualifiedTestName.includes("testGetAlphabet")) console.log(result);
     } catch (e) {
@@ -158,7 +158,7 @@ export async function detectIsolation(
     let reportIfFail = false;
     try {
         results = await exec(
-            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${qualifiedTestName} -Dsurefire.rerunTestsCount=100 ${pl}`
+            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${qualifiedTestName} -Dsurefire.rerunTestsCount=100 ${pl} -B`
         );
     } catch (e) {
         const error = e as { stdout: string; stderr: string };
@@ -169,7 +169,7 @@ export async function detectIsolation(
     if (flakyDetected) {
         detections.push("Isolation");
     } else if (reportIfFail) {
-        console.error(results);
+        throw results;
     }
 }
 
@@ -182,7 +182,7 @@ export async function detectOneByOne(
     for (const test of allTests) {
         if (test === qualifiedTestName) continue;
         const results = await exec(
-            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} ${pl}`
+            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} ${pl} -B`
         );
 
         const flakyDetected = results.stdout.includes("FAILURE!");
