@@ -89,12 +89,14 @@ export async function flakewatch(project: ProjectInfo) {
                     await git.reset(["--hard"]);
                     await git.checkout(project.branch);
 
-                    result.detections.push({
-                        testName,
-                        detections,
-                        module,
-                        sha: commit,
-                    });
+                    if (detections.length > 0) {
+                        result.detections.push({
+                            testName,
+                            detections,
+                            module,
+                            sha: commit,
+                        });
+                    }
                 }
                 console.log(project.name + ": Finished running detectors.");
             }
