@@ -42,12 +42,10 @@ async function orchestrateProject(project: Project) {
             ).stdout.split("\n").length > 0;
     } catch (e) {}
 
+    const imageName = containerExists ? projectImageName : "flakewatch:base";
+    const updateContainerName = `flakewatch-update-${project.name}`;
+    const updateCmd = `/bin/bash -c "cd /home/flakewatch/flakewatch/backend && git pull && npm install && npm run build && npm run update -- '${passedInInfo}'"`;
     try {
-        const imageName = containerExists
-            ? projectImageName
-            : "flakewatch:base";
-        const updateContainerName = `flakewatch-update-${project.name}`;
-        const updateCmd = `/bin/bash -c "cd /home/flakewatch/flakewatch/backend && git pull && npm install && npm run update -- '${passedInInfo}'"`;
         await exec(
             `docker run --name='${updateContainerName}' -i ${imageName} ${updateCmd}`
         );
@@ -65,7 +63,9 @@ async function orchestrateProject(project: Project) {
             console.error(project.name + ": Compilation failed.");
             return;
         }
-        await exec(`docker image rm ${projectImageName}`); // remove the old image
+        try {
+            await exec(`docker image rm ${projectImageName}`); // remove the old image if present
+        } catch (e) {}
         await exec(`docker commit ${updateContainerName} ${projectImageName}`);
         await exec(`docker rm ${updateContainerName}`);
         if (updateResults.newLastCheckedCommit) {
@@ -76,7 +76,7 @@ async function orchestrateProject(project: Project) {
         }
         if (!updateResults.shouldRunFlakewatch) return;
 
-        const startCmd = `/bin/bash -c "cd /home/flakewatch/flakewatch/backend && rm -f /home/flakewatch/flakewatch-results.json && rm -rf /home/flakewatch/ci-logs && git pull && npm install && npm run flakewatch -- '${passedInInfo}'"`;
+        const startCmd = `/bin/bash -c "cd /home/flakewatch/flakewatch/backend && rm -f /home/flakewatch/flakewatch-results.json && rm -rf /home/flakewatch/ci-logs && npm run flakewatch -- '${passedInInfo}'"`;
         // NOTE: we expect the below line could take hours
         await exec(
             `docker run --name='flakewatch-${project.name}' -i ${projectImageName} ${startCmd}`
@@ -87,6 +87,12 @@ async function orchestrateProject(project: Project) {
             project.name + ": Something went wrong during orchestration:"
         );
         console.error(e);
+        try {
+            await exec(`docker rm ${updateContainerName}`);
+        } catch (e) {}
+        try {
+            await exec(`docker rm flakewatch-${project.name}`);
+        } catch (e) {}
     }
 }
 
