@@ -281,7 +281,7 @@ async function downloadCILogs(
 
     const result = [] as FlakewatchResults["ciDetections"];
 
-    await fs.mkdir(`/home/flakewatch/ci-logs/${project.name}`, {
+    await fs.mkdir(`/home/flakewatch/ci-logs`, {
         recursive: true,
     });
 
@@ -304,7 +304,7 @@ async function downloadCILogs(
 
                 const date = commit.date.slice(0, 10).replaceAll("-", "");
                 const hash = commit.hash.slice(0, 7);
-                const filePath = `/home/flakewatch/ci-logs/${project.name}/${date}-${hash}-${run.id}.zip`;
+                const filePath = `/home/flakewatch/ci-logs/${date}-${hash}-${run.id}.zip`;
 
                 await fs.writeFile(
                     filePath,
