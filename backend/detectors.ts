@@ -17,8 +17,14 @@ export type DetectorInfo = {
 const run = async (fn: () => Promise<void>) => {
     try {
         await fn();
-    } catch (e) {
+    } catch (e: any) {
+        console.error("Error running detector.");
         console.error(e);
+        if (typeof e.stdout === "string") {
+            console.error("\nStdout:");
+            console.error(e.stdout);
+            return;
+        }
     }
 };
 
