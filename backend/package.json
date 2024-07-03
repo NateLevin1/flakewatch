@@ -1,6 +1,7 @@
 {
     "dependencies": {
         "@octokit/rest": "^21.0.0",
+        "adm-zip": "^0.5.14",
         "esno": "^4.7.0",
         "simple-git": "^3.25.0",
         "typescript": "^5.5.2"
@@ -27,6 +28,7 @@
     },
     "homepage": "https://github.com/NateLevin1/flakewatch#readme",
     "devDependencies": {
+        "@types/adm-zip": "^0.5.5",
         "@types/node": "^20.14.9"
     }
 }

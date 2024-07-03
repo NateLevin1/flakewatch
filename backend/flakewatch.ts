@@ -76,7 +76,8 @@ export async function flakewatch(project: ProjectInfo) {
                             testName,
                             `/home/flakewatch/clone/${project.name}`,
                             module,
-                            project
+                            project,
+                            commit
                         );
                     } catch (e) {
                         console.error(

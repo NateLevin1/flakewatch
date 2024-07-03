@@ -1,6 +1,7 @@
 import util from "util";
 import { exec as execC } from "child_process";
 import fs from "fs/promises";
+import AdmZip from "adm-zip";
 import type { DetectionCause, ProjectInfo } from "./shared.js";
 
 export const exec = util.promisify(execC);
@@ -28,12 +29,15 @@ const run = async (fn: () => Promise<void>) => {
     }
 };
 
-// TODO: base on page 12 of Lam et al https://cs.gmu.edu/~winglam/publications/2020/LamETAL20OOPSLA.pdf
+type ReportFn = (detection: DetectionCause, logs?: string) => void;
+
+// based on page 12 of Lam et al https://cs.gmu.edu/~winglam/publications/2020/LamETAL20OOPSLA.pdf
 export async function runDetectors(
     qualifiedTestName: string,
     projectPath: string,
     module: string,
-    project: ProjectInfo
+    project: ProjectInfo,
+    commitSha: string
 ) {
     const fullModulePath = projectPath + "/" + module;
 
@@ -80,11 +84,19 @@ export async function runDetectors(
     } satisfies DetectorInfo;
 
     const detections: DetectionCause[] = [];
+    let logFiles: { cause: DetectionCause; content: string }[] = [];
 
-    await run(async () => await detectIDFlakies(detectorInfo, detections));
-    await run(async () => await detectNonDex(detectorInfo, detections));
-    await run(async () => await detectIsolation(detectorInfo, detections));
-    await run(async () => await detectOneByOne(detectorInfo, detections));
+    const report: ReportFn = (detection: DetectionCause, logs?: string) => {
+        if (!detections.includes(detection)) {
+            detections.push(detection);
+            if (logs) logFiles.push({ cause: detection, content: logs });
+        }
+    };
+
+    await run(async () => await detectIDFlakies(detectorInfo, report));
+    await run(async () => await detectNonDex(detectorInfo, report));
+    await run(async () => await detectIsolation(detectorInfo, report));
+    await run(async () => await detectOneByOne(detectorInfo, report));
 
     if (detections.length > 0) {
         console.log(
@@ -96,12 +108,22 @@ export async function runDetectors(
         );
     }
 
+    const zip = new AdmZip();
+    for (const { cause, content } of logFiles) {
+        zip.addFile(cause + ".log", Buffer.from(content));
+    }
+    const hash = commitSha.slice(0, 7);
+    const testName = qualifiedTestName.replaceAll(".", "-");
+    await zip.writeZipPromise(
+        `/home/flakewatch/failures-logs/${hash}-${testName}.zip`
+    );
+
     return detections;
 }
 
 export async function detectIDFlakies(
     { qualifiedTestName, fullModulePath }: DetectorInfo,
-    detections: string[]
+    report: ReportFn
 ) {
     await exec(
         `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=random-class-method -Ddt.randomize.rounds=10 -Ddt.detector.original_order.all_must_pass=false`
@@ -115,14 +137,17 @@ export async function detectIDFlakies(
     ) as { dts: { name: string; type: "OD" | "NOD" }[] };
     for (const flaky of flakyLists.dts) {
         if (flaky.name === qualifiedTestName.replace("#", ".")) {
-            detections.push("iDFl-" + flaky.type);
+            report(
+                ("iDFl-" + flaky.type) as DetectionCause,
+                JSON.stringify(flaky, null, 2)
+            );
         }
     }
 }
 
 export async function detectNonDex(
     { qualifiedTestName, fullModulePath }: DetectorInfo,
-    detections: string[]
+    report: ReportFn
 ) {
     try {
         const result = await exec(
@@ -142,7 +167,7 @@ export async function detectNonDex(
             );
 
         if (isNonDexError) {
-            detections.push("NonDex");
+            report("NonDex", error.stdout);
         } else {
             throw e;
         }
@@ -152,7 +177,7 @@ export async function detectNonDex(
 // Section 2.3.1 Isolation in Lam et al https://cs.gmu.edu/~winglam/publications/2020/LamETAL20OOPSLA.pdf
 export async function detectIsolation(
     { qualifiedTestName, projectPath, pl }: DetectorInfo,
-    detections: string[]
+    report: ReportFn
 ) {
     let results;
     let reportIfFail = false;
@@ -167,7 +192,7 @@ export async function detectIsolation(
     }
     const flakyDetected = results.stdout.includes("[WARNING] Flakes:");
     if (flakyDetected) {
-        detections.push("Isolation");
+        report("Isolation", results.stdout);
     } else if (reportIfFail) {
         throw results;
     }
@@ -176,7 +201,7 @@ export async function detectIsolation(
 // Section 2.3.2 One-By-One in Lam et al https://cs.gmu.edu/~winglam/publications/2020/LamETAL20OOPSLA.pdf
 export async function detectOneByOne(
     { qualifiedTestName, allTests, projectPath, pl }: DetectorInfo,
-    detections: string[]
+    report: ReportFn
 ) {
     // run every test before qualifiedTestName
     for (const test of allTests) {
@@ -187,7 +212,15 @@ export async function detectOneByOne(
 
         const flakyDetected = results.stdout.includes("FAILURE!");
         if (flakyDetected) {
-            detections.push("OBO");
+            report(
+                "OBO",
+                "order: " +
+                    test +
+                    "," +
+                    qualifiedTestName +
+                    "\n" +
+                    results.stdout
+            );
             break;
         }
     }

@@ -28,7 +28,7 @@ export async function orchestrate() {
 async function orchestrateProject(project: Project) {
     const passedInInfo = JSON.stringify({
         ...project,
-        lastCheckedCommit: "93bb996341f21b73f1e7dc46afcd07104061f1e3", //getProjectLastCheckedCommit(project.name),
+        lastCheckedCommit: "3de2382089e601a56daa091f807fd1a0855971e6", //getProjectLastCheckedCommit(project.name),
         githubToken: process.env.GITHUB_TOKEN!,
     } satisfies ProjectInfo).replaceAll('"', '\\"');
 
@@ -100,6 +100,7 @@ async function readFlakewatchResultsToDB(project: Project) {
     const resultsPath = `./results/flakewatch-results-${project.name}.json`;
     await fs.mkdir("results", { recursive: true });
     await fs.mkdir("ci-logs/" + project.name, { recursive: true });
+    await fs.mkdir("failure-logs/" + project.name, { recursive: true });
 
     const containerName = `flakewatch-${project.name}`;
     await exec(
@@ -107,6 +108,9 @@ async function readFlakewatchResultsToDB(project: Project) {
     );
     await exec(
         `docker cp ${containerName}:/home/flakewatch/ci-logs/. ./ci-logs/${project.name}/`
+    );
+    await exec(
+        `docker cp ${containerName}:/home/flakewatch/failure-logs/. ./failure-logs/${project.name}/`
     );
     await exec(`docker rm ${containerName}`);
 

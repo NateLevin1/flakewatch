@@ -5,4 +5,5 @@ flakewatch.db*
 disabled-projects
 ci-logs
 results
+failure-logs
 .env
