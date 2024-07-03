@@ -1,7 +1,6 @@
 // This is the type that /home/flakewatch/flakewatch-results.json in the container should match
 // Both backend/shared.ts and orchestration/shared.ts contain this same file
 export type FlakewatchResults = {
-    newLastCheckedCommit?: string;
     detections: {
         testName: string;
         detections: DetectionCause[];
@@ -16,6 +15,11 @@ export type DetectionCause =
     | "OBO"
     | "iDFl-OD"
     | "iDFl-NOD";
+export type UpdateResults = {
+    compileSuccess?: boolean;
+    shouldRunFlakewatch?: boolean;
+    newLastCheckedCommit?: string;
+};
 export type Project = {
     name: string;
     gitURL: string;

@@ -12,8 +12,8 @@
     "type": "module",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "dev": "esno flakewatch.ts",
-        "start": "npm run build && node dist/flakewatch.js",
+        "flakewatch": "node dist/flakewatch.js",
+        "update": "node dist/update.js",
         "build": "tsc",
         "postinstall": "mkdir -p /home/flakewatch/clone && mkdir -p /home/flakewatch/ci-logs"
     },

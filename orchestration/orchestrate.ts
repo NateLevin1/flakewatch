@@ -1,13 +1,19 @@
 import util from "util";
 import { exec as execC } from "child_process";
 import fs from "fs/promises";
-import type { FlakewatchResults, Project, ProjectInfo } from "./shared.js";
+import type {
+    FlakewatchResults,
+    Project,
+    ProjectInfo,
+    UpdateResults,
+} from "./shared.js";
 import { projects } from "./config.js";
 import {
     getFlaky,
     getProjectLastCheckedCommit,
     insertFlaky,
     markFlakyFixed,
+    setProjectLastCheckedCommit,
     updateFlakyCategory,
 } from "./db.js";
 
@@ -26,28 +32,55 @@ async function orchestrateProject(project: Project) {
         githubToken: process.env.GITHUB_TOKEN!,
     } satisfies ProjectInfo).replaceAll('"', '\\"');
 
+    const projectImageName = `flakewatch-${project.name}:latest`;
+
     let containerExists = false;
     try {
         containerExists =
             (
-                await exec(`docker ps -a | grep flakewatch-${project.name}`)
+                await exec(`docker images | grep ${projectImageName}`)
             ).stdout.split("\n").length > 0;
     } catch (e) {}
 
     try {
-        const startCmd = `/bin/bash -c "cd /home/flakewatch/flakewatch/backend && rm -f /home/flakewatch/flakewatch-results.json && rm -rf /home/flakewatch/ci-logs && git pull && npm install && npm start -- '${passedInInfo}'"`;
-        let promise: Promise<unknown>;
-        if (containerExists) {
-            await exec(`docker start flakewatch-${project.name}`);
-            promise = exec(
-                `docker exec flakewatch-${project.name} ${startCmd}`
-            );
-        } else {
-            promise = exec(
-                `docker run --name='flakewatch-${project.name}' -i flakewatch:base ${startCmd}`
+        const imageName = containerExists
+            ? projectImageName
+            : "flakewatch:base";
+        const updateContainerName = `flakewatch-update-${project.name}`;
+        const updateCmd = `/bin/bash -c "cd /home/flakewatch/flakewatch/backend && git pull && npm install && npm run update -- '${passedInInfo}'"`;
+        await exec(
+            `docker run --name='${updateContainerName}' -i ${imageName} ${updateCmd}`
+        );
+        await exec(
+            `docker cp ${updateContainerName}:/home/flakewatch/update-results.json ./results/update-results-${project.name}.json`
+        );
+        const updateResults = JSON.parse(
+            (
+                await fs.readFile(
+                    `./results/update-results-${project.name}.json`
+                )
+            ).toString()
+        ) as UpdateResults;
+        if (!updateResults.compileSuccess) {
+            console.error(project.name + ": Compilation failed.");
+            return;
+        }
+        await exec(`docker image rm ${projectImageName}`); // remove the old image
+        await exec(`docker commit ${updateContainerName} ${projectImageName}`);
+        await exec(`docker rm ${updateContainerName}`);
+        if (updateResults.newLastCheckedCommit) {
+            setProjectLastCheckedCommit(
+                project.name,
+                updateResults.newLastCheckedCommit
             );
         }
-        await promise; // we expect this could take hours!
+        if (!updateResults.shouldRunFlakewatch) return;
+
+        const startCmd = `/bin/bash -c "cd /home/flakewatch/flakewatch/backend && rm -f /home/flakewatch/flakewatch-results.json && rm -rf /home/flakewatch/ci-logs && git pull && npm install && npm run flakewatch -- '${passedInInfo}'"`;
+        // NOTE: we expect the below line could take hours
+        await exec(
+            `docker run --name='flakewatch-${project.name}' -i ${projectImageName} ${startCmd}`
+        );
         await readFlakewatchResultsToDB(project);
     } catch (e) {
         console.error(
@@ -62,12 +95,14 @@ async function readFlakewatchResultsToDB(project: Project) {
     await fs.mkdir("results", { recursive: true });
     await fs.mkdir("ci-logs/" + project.name, { recursive: true });
 
+    const containerName = `flakewatch-${project.name}`;
     await exec(
-        `docker cp flakewatch-${project.name}:/home/flakewatch/flakewatch-results.json ${resultsPath}`
+        `docker cp ${containerName}:/home/flakewatch/flakewatch-results.json ${resultsPath}`
     );
     await exec(
-        `docker cp flakewatch-${project.name}:/home/flakewatch/ci-logs/. ./ci-logs/${project.name}/`
+        `docker cp ${containerName}:/home/flakewatch/ci-logs/. ./ci-logs/${project.name}/`
     );
+    await exec(`docker rm ${containerName}`);
 
     const results = JSON.parse(
         (await fs.readFile(resultsPath)).toString()

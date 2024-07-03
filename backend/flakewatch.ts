@@ -1,10 +1,5 @@
 import { runDetectors, exec } from "./detectors.js";
-import {
-    simpleGit,
-    CleanOptions,
-    type LogResult,
-    type DefaultLogFields,
-} from "simple-git";
+import { simpleGit, type LogResult, type DefaultLogFields } from "simple-git";
 import fs from "fs/promises";
 import { Octokit } from "@octokit/rest";
 import type {
@@ -25,7 +20,7 @@ export const octokit: Octokit = new Octokit({
 flakewatch(projectInfo);
 
 export async function flakewatch(project: ProjectInfo) {
-    console.log("Started flakewatch.");
+    console.log(project.name + ": Started flakewatch.");
     let result: FlakewatchResults = {
         detections: [],
         ciDetections: [],
@@ -39,18 +34,8 @@ export async function flakewatch(project: ProjectInfo) {
     } catch (e) {}
 
     try {
-        // * Update the project to the latest commit
-        try {
-            await git.clone(project.gitURL, project.name);
-            await git.cwd("/home/flakewatch/clone/" + project.name);
-        } catch (e) {
-            await git.cwd("/home/flakewatch/clone/" + project.name);
-            // clone fails if non-empty, so pull instead if it's already cloned
-            await git.reset(["--hard"]);
-            await git.checkout(project.branch);
-            await git.reset(["--hard"]);
-            await git.pull();
-        }
+        // the project should already be cloned & updated by the time this is called - see update.ts
+        await git.cwd("/home/flakewatch/clone/" + project.name);
 
         const lastCheckedCommit = project.lastCheckedCommit;
         const log = await git.log({
@@ -60,7 +45,6 @@ export async function flakewatch(project: ProjectInfo) {
         if (!log.latest) return;
 
         if (!lastCheckedCommit) {
-            result.newLastCheckedCommit = log.latest.hash;
             console.log(
                 `${project.name}: Initializing at commit ${log.latest.hash}`
             );
@@ -69,11 +53,6 @@ export async function flakewatch(project: ProjectInfo) {
 
         const newCommitsExist = log.latest.hash !== lastCheckedCommit;
         if (newCommitsExist) {
-            result.newLastCheckedCommit = log.latest.hash;
-            console.log(
-                `${project.name}: ${log.all.length} new commit(s) found`
-            );
-
             result.ciDetections = await downloadCILogs(project, log);
 
             const modifiedTests = await findModifiedTests(log);
