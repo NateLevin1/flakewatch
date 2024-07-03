@@ -48,7 +48,7 @@ export async function update(project: ProjectInfo) {
         // try compiling the project
         try {
             await exec(
-                `cd /home/flakewatch/clone/${project.name} && mvn compile -ff -B`
+                `cd /home/flakewatch/clone/${project.name} && mvn install -ff -B -DskipTests`
             );
             result.compileSuccess = true;
             console.log(project.name + ": Compilation succeeded.");

@@ -144,7 +144,7 @@ export async function detectNonDex(
         if (isNonDexError) {
             detections.push("NonDex");
         } else {
-            console.error(error);
+            throw e;
         }
     }
 }
