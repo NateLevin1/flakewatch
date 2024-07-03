@@ -65,10 +65,16 @@ export async function update(project: ProjectInfo) {
             from: lastCheckedCommit ?? "HEAD~",
             to: "HEAD",
         });
-        console.log("Last checked commit: " + lastCheckedCommit);
-        console.log("Latest:", log.latest?.hash);
-        console.log("Log:", log.all);
-        if (!log.latest) return;
+
+        if (!log.latest) {
+            console.log("Something went wrong - no latest commit found.");
+            console.log("Last checked commit: " + lastCheckedCommit);
+            console.log("Log:", log.all);
+            console.log("Current:", await git.raw(["rev-parse", "HEAD"]));
+            console.log("[!] Sleeping for 5 minutes for debugging");
+            await new Promise((r) => setTimeout(r, 5 * 60 * 1000));
+            return;
+        }
 
         if (!lastCheckedCommit) {
             result.newLastCheckedCommit = log.latest.hash;
