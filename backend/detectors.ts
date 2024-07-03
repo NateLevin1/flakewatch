@@ -125,8 +125,9 @@ export async function detectIDFlakies(
     { qualifiedTestName, fullModulePath }: DetectorInfo,
     report: ReportFn
 ) {
+    const timeout = 60 * 1000; // TODO: vary by # of tests detected
     await exec(
-        `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=random-class-method -Ddt.randomize.rounds=10 -Ddt.detector.original_order.all_must_pass=false`
+        `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=random-class-method -Ddt.detector.original_order.all_must_pass=false -Ddetector.timeout=${timeout}`
     );
     const flakyLists = JSON.parse(
         await fs.readFile(
@@ -149,9 +150,10 @@ export async function detectNonDex(
     { qualifiedTestName, fullModulePath }: DetectorInfo,
     report: ReportFn
 ) {
+    const runs = 9; // TODO: vary by # of tests detected (default is 3)
     try {
         const result = await exec(
-            `cd ${fullModulePath} && mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -B`
+            `cd ${fullModulePath} && mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -DnondexRuns=${100} -B`
         );
         if (qualifiedTestName.includes("testGetAlphabet")) console.log(result);
     } catch (e) {
@@ -181,9 +183,10 @@ export async function detectIsolation(
 ) {
     let results;
     let reportIfFail = false;
+    const runs = 100; // TODO: vary by # of tests detected
     try {
         results = await exec(
-            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${qualifiedTestName} -Dsurefire.rerunTestsCount=100 ${pl} -B`
+            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${qualifiedTestName} -Dsurefire.rerunTestsCount=${runs} ${pl} -B`
         );
     } catch (e) {
         const error = e as { stdout: string; stderr: string };
