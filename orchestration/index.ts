@@ -41,5 +41,5 @@ app.listen(config.port, () => {
             projects.map((p) => p.name).join(", ") +
             "."
     );
-    new CronJob("0 */12 * * *", orchestrate, null, true, null, null, true);
+    new CronJob("0 0 * * *", orchestrate, null, true, null, null, true);
 });
