@@ -61,6 +61,12 @@ export async function update(project: ProjectInfo) {
             from: lastCheckedCommit ?? "HEAD~",
             to: "HEAD",
         });
+        console.log("Last checked commit: " + lastCheckedCommit);
+        console.log(
+            "Latest | last checked",
+            log.latest?.hash + "\t|\t" + lastCheckedCommit
+        );
+        console.log("Log:", log.all);
         if (!log.latest) return;
 
         if (!lastCheckedCommit) {
