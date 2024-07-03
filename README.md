@@ -1,35 +1,35 @@
-# flakewatch
+# FlakeWatch
 
 Live tracking of flaky tests in large public repositories.
 
 ## Setup
 
-Ensure that you have NodeJS and NPM installed. Then, run:
+Ensure that you have Docker, NodeJS, and NPM installed. Then, run:
 
 ```bash
-cd backend && npm install
+cd orchestration && npm install
 ```
-
-Additionally, you must install [this maven-surefire plugin](https://github.com/TestingResearchIllinois/maven-surefire/tree/umaster-tms-w-ext) and put the path to the jar in the `_config.json` file so that the detection scripts will work. Make sure to `git checkout umaster-tms-w-ext` before following the instructions in that repo. **Do not install the plugin to you local maven repository,** as this breaks NonDex.
 
 ## Running the server
 
 ```bash
-cd backend && npm run dev
+cd orchestration && npm start
 ```
 
-Then navigate to `http://localhost:3000/list.csv` in your browser to download the live list of flaky tests.
+This command will build the base docker container and start the server. Expect this to take 20 minutes or more the first time you run it.
+
+Once the server has started, you can navigate to http://localhost:8080/list.csv in your browser at any time to download the live list of flaky tests. Every midnight, the server will automatically run detectors on projects that have changed and update the list.
 
 ## Adding Projects & Configuration
 
-To add a new project, create a new JSON file in the `backend/projects` directory. The file should have the following structure:
+To add a new project, create a new JSON file in the `orchestration/projects` directory. The file should have the following structure:
 
 ```json
 {
-    "name": "json-file-name",
+    "name": "some-project",
     "gitURL": "https://github.com/some/repo.git",
     "branch": "master"
 }
 ```
 
-To configure other aspects of the server, edit the `backend/projects/_config.json` file.
+To configure other aspects of the server, edit the `orchestration/projects/_config.json` file.
