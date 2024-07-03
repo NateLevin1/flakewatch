@@ -15,9 +15,9 @@ export type DetectorInfo = {
     pl: string;
 };
 
-const run = async (fn: () => Promise<void>) => {
+const run = async <T>(fn: () => Promise<T>) => {
     try {
-        await fn();
+        return await fn();
     } catch (e: any) {
         console.error("Error running detector.");
         console.error(e);
@@ -93,9 +93,21 @@ export async function runDetectors(
         }
     };
 
+    if (
+        (await run(
+            async () => await detectIsolation(detectorInfo, commitSha, report)
+        )) === "failing"
+    ) {
+        console.log(
+            project.name +
+                ": " +
+                qualifiedTestName +
+                " is a failing test - ignoring it for flaky detection."
+        );
+        return [];
+    }
     await run(async () => await detectIDFlakies(detectorInfo, report));
     await run(async () => await detectNonDex(detectorInfo, report));
-    await run(async () => await detectIsolation(detectorInfo, report));
     await run(async () => await detectOneByOne(detectorInfo, report));
 
     if (detections.length > 0) {
@@ -176,9 +188,11 @@ export async function detectNonDex(
     }
 }
 
+const failureCountRegex = /Tests run: \d+, Failures: (\d+).+FAILURE!/;
 // Section 2.3.1 Isolation in Lam et al https://cs.gmu.edu/~winglam/publications/2020/LamETAL20OOPSLA.pdf
 export async function detectIsolation(
     { qualifiedTestName, projectPath, pl }: DetectorInfo,
+    commitSha: string,
     report: ReportFn
 ) {
     let results;
@@ -194,8 +208,27 @@ export async function detectIsolation(
         reportIfFail = true;
     }
     const flakyDetected = results.stdout.includes("[WARNING] Flakes:");
+    const failureCount = Number(
+        results.stdout.match(failureCountRegex)?.[1] ?? 0
+    );
+
+    if (failureCount >= runs) {
+        // this is a failing test, not a flaky test.
+        const zip = new AdmZip();
+        zip.addFile("isolation-failing.log", Buffer.from(results.stdout));
+        const hash = commitSha.slice(0, 7);
+        const testName = qualifiedTestName.replaceAll(".", "-");
+        await zip.writeZipPromise(
+            `/home/flakewatch/failure-logs/${testName}-${hash}.zip`
+        );
+        return "failing";
+    }
+
     if (flakyDetected) {
-        report("Isolation", results.stdout);
+        report(
+            "Isolation",
+            "failure-count: " + failureCount + "\n\n\n" + results.stdout
+        );
     } else if (reportIfFail) {
         throw results;
     }
