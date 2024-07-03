@@ -33,6 +33,10 @@ export async function update(project: ProjectInfo) {
             await git.clone(project.gitURL, project.name);
             await git.cwd("/home/flakewatch/clone/" + project.name);
         } catch (e) {
+            console.log(
+                "Clone failed; this is expected if the project is already cloned."
+            );
+            console.log(e);
             await git.cwd("/home/flakewatch/clone/" + project.name);
             // clone fails if non-empty, so pull instead if it's already cloned
             await git.reset(["--hard"]);
@@ -62,10 +66,7 @@ export async function update(project: ProjectInfo) {
             to: "HEAD",
         });
         console.log("Last checked commit: " + lastCheckedCommit);
-        console.log(
-            "Latest | last checked",
-            log.latest?.hash + "\t|\t" + lastCheckedCommit
-        );
+        console.log("Latest:", log.latest?.hash);
         console.log("Log:", log.all);
         if (!log.latest) return;
 
