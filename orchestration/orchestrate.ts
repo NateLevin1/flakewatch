@@ -14,33 +14,28 @@ import {
 export const exec = util.promisify(execC);
 
 export async function orchestrate() {
-    console.log(
-        projects.length +
-            " projects loaded: " +
-            projects.map((p) => p.name).join(", ") +
-            "."
-    );
     for (const project of projects) {
         orchestrateProject(project);
     }
 }
 
 async function orchestrateProject(project: Project) {
-    let containerExists = false;
-    try {
-        containerExists =
-            (await exec(`docker ps -a | grep flakewatch-${project.name}`))
-                .stdout.length > 0;
-    } catch (e) {}
-
     const passedInInfo = JSON.stringify({
         ...project,
-        lastCheckedCommit: getProjectLastCheckedCommit(project.name),
+        lastCheckedCommit: "93bb996341f21b73f1e7dc46afcd07104061f1e3", //getProjectLastCheckedCommit(project.name),
         githubToken: process.env.GITHUB_TOKEN!,
     } satisfies ProjectInfo).replaceAll('"', '\\"');
 
+    let containerExists = false;
     try {
-        const startCmd = `/bin/bash -c "cd /home/flakewatch/flakewatch/backend && git pull && npm install && npm start -- '${passedInInfo}'"`;
+        containerExists =
+            (
+                await exec(`docker ps -a | grep flakewatch-${project.name}`)
+            ).stdout.split("\n").length > 0;
+    } catch (e) {}
+
+    try {
+        const startCmd = `/bin/bash -c "cd /home/flakewatch/flakewatch/backend && rm -f /home/flakewatch/flakewatch-results.json && rm -rf /home/flakewatch/ci-logs && git pull && npm install && npm start -- '${passedInInfo}'"`;
         let promise: Promise<unknown>;
         if (containerExists) {
             await exec(`docker start flakewatch-${project.name}`);
@@ -49,13 +44,15 @@ async function orchestrateProject(project: Project) {
             );
         } else {
             promise = exec(
-                `docker run --name='flakewatch-${project.name}' -i -t flakewatch:base ${startCmd}`
+                `docker run --name='flakewatch-${project.name}' -i flakewatch:base ${startCmd}`
             );
         }
-        await promise; // we expect this to take hours!
+        await promise; // we expect this could take hours!
         await readFlakewatchResultsToDB(project);
     } catch (e) {
-        console.error(project.name + ": Something went wrong during start up:");
+        console.error(
+            project.name + ": Something went wrong during orchestration:"
+        );
         console.error(e);
     }
 }
@@ -69,21 +66,21 @@ async function readFlakewatchResultsToDB(project: Project) {
         `docker cp flakewatch-${project.name}:/home/flakewatch/flakewatch-results.json ${resultsPath}`
     );
     await exec(
-        `docker exec flakewatch-${project.name} rm /home/flakewatch/flakewatch-results.json`
-    );
-    await exec(
         `docker cp flakewatch-${project.name}:/home/flakewatch/ci-logs/. ./ci-logs/${project.name}/`
     );
-    await exec(
-        `docker exec flakewatch-${project.name} rm -rf /home/flakewatch/ci-logs`
-    );
-    await exec(`docker stop flakewatch-${project.name}`);
 
     const results = JSON.parse(
         (await fs.readFile(resultsPath)).toString()
     ) as FlakewatchResults;
 
     for (const { testName, detections, sha, module } of results.detections) {
+        console.log(
+            project.name +
+                ": " +
+                testName +
+                " is flaky. Reason(s): " +
+                detections.join(", ")
+        );
         const existing = getFlaky(testName);
 
         if (detections.length > 0) {
@@ -123,6 +120,7 @@ async function readFlakewatchResultsToDB(project: Project) {
     }
 
     for (const { testName, sha } of results.ciDetections) {
+        console.log(project.name + ": " + testName + " is flaky in CI.");
         const existing = getFlaky(testName);
         const insert = () => {
             insertFlaky({
