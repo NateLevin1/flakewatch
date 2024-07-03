@@ -114,7 +114,7 @@ export async function runDetectors(
         const hash = commitSha.slice(0, 7);
         const testName = qualifiedTestName.replaceAll(".", "-");
         await zip.writeZipPromise(
-            `/home/flakewatch/failure-logs/${hash}-${testName}.zip`
+            `/home/flakewatch/failure-logs/${testName}-${hash}.zip`
         );
     }
 
@@ -218,7 +218,7 @@ export async function detectOneByOne(
                     test +
                     "," +
                     qualifiedTestName +
-                    "\n" +
+                    "\n\n\n" +
                     results.stdout
             );
             break;
