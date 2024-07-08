@@ -67,12 +67,10 @@ export async function update(project: ProjectInfo) {
         });
 
         if (!log.latest) {
-            console.log("Something went wrong - no latest commit found.");
+            console.log("No new commits found.");
             console.log("Last checked commit: " + lastCheckedCommit);
             console.log("Log:", log.all);
             console.log("Current:", await git.raw(["rev-parse", "HEAD"]));
-            console.log("[!] Sleeping for 5 minutes for debugging");
-            await new Promise((r) => setTimeout(r, 5 * 60 * 1000));
             return;
         }
 
