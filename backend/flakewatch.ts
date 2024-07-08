@@ -78,7 +78,7 @@ export async function flakewatch(project: ProjectInfo) {
                             module,
                             project,
                             commit,
-                            Math.round((24 * 60) / modifiedTests.length)
+                            Math.round((23 * 60) / modifiedTests.length)
                         );
                     } catch (e) {
                         console.error(
