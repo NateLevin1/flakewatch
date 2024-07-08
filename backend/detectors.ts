@@ -131,39 +131,52 @@ export async function runDetectors(
     return detections;
 }
 
+type FlakyListsType = { dts: { name: string; type: "OD" | "NOD" }[] };
 export async function detectIDFlakies(
     { qualifiedTestName, fullModulePath }: DetectorInfo,
     report: ReportFn
 ) {
-    const timeout = 60 * 1000; // TODO: vary by # of tests detected
+    const testName = qualifiedTestName.replace("#", ".");
+    const flakyListsPath =
+        fullModulePath + "/.dtfixingtools/detection-results/flaky-lists.json";
+    const existingFlakyList = await fs
+        .readFile(flakyListsPath, "utf-8")
+        .then((file) => JSON.parse(file) as FlakyListsType)
+        .catch(() => undefined);
+
+    const rounds = 100; // TODO: vary by # of tests detected
+    // TODO: run once in in ReverseC+M order
+    // await exec(
+    //     `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=reverse-class-method -Ddt.detector.original_order.all_must_pass=false -Ddt.randomize.rounds=${rounds}`
+    // );
     await exec(
-        `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=random-class-method -Ddt.detector.original_order.all_must_pass=false -Ddetector.timeout=${timeout}`
+        `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=random-class-method -Ddt.detector.original_order.all_must_pass=false -Ddt.randomize.rounds=${rounds}`
     );
+
     const flakyLists = JSON.parse(
-        await fs.readFile(
-            fullModulePath +
-                "/.dtfixingtools/detection-results/flaky-lists.json",
-            "utf-8"
-        )
-    ) as { dts: { name: string; type: "OD" | "NOD" }[] };
-    for (const flaky of flakyLists.dts) {
-        if (flaky.name === qualifiedTestName.replace("#", ".")) {
+        await fs.readFile(flakyListsPath, "utf-8")
+    ) as FlakyListsType;
+    const dts = flakyLists.dts.concat(existingFlakyList?.dts ?? []); // merge with existing flaky list
+    for (const flaky of dts) {
+        if (flaky.name === testName) {
             report(
                 ("iDFl-" + flaky.type) as DetectionCause,
                 JSON.stringify(flaky, null, 2)
             );
         }
     }
+    // write the updated flaky list back to the file
+    await fs.writeFile(flakyListsPath, JSON.stringify({ dts }, null, 2));
 }
 
 export async function detectNonDex(
     { qualifiedTestName, fullModulePath }: DetectorInfo,
     report: ReportFn
 ) {
-    const runs = 9; // TODO: vary by # of tests detected (default is 3)
+    const runs = 10; // TODO: vary by # of tests detected (default is 3)
     try {
         const result = await exec(
-            `cd ${fullModulePath} && mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -DnondexRuns=${100} -B`
+            `cd ${fullModulePath} && mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -DnondexRuns=${runs} -B`
         );
         if (qualifiedTestName.includes("testGetAlphabet")) console.log(result);
     } catch (e) {
@@ -193,12 +206,12 @@ export async function detectIsolation(
     commitSha: string,
     report: ReportFn
 ) {
+    const reruns = 99; // TODO: vary by # of tests detected
     let results;
     let reportIfFail = false;
-    const runs = 100; // TODO: vary by # of tests detected
     try {
         results = await exec(
-            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${qualifiedTestName} -Dsurefire.rerunTestsCount=${runs} ${pl} -B`
+            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${qualifiedTestName} -Dsurefire.rerunTestsCount=${reruns} ${pl} -B`
         );
     } catch (e) {
         const error = e as { stdout: string; stderr: string };
@@ -210,7 +223,7 @@ export async function detectIsolation(
         results.stdout.match(failureCountRegex)?.[1] ?? 0
     );
 
-    if (failureCount >= runs) {
+    if (failureCount >= reruns) {
         // this is a failing test, not a flaky test.
         const zip = new AdmZip();
         zip.addFile("isolation-failing.log", Buffer.from(results.stdout));
@@ -238,14 +251,17 @@ export async function detectOneByOne(
     isFailing: boolean,
     report: ReportFn
 ) {
+    const reruns = 4; // TODO: vary by # of tests detected
     // run every test before qualifiedTestName
     for (const test of allTests) {
         if (test === qualifiedTestName) continue;
         const results = await exec(
-            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} ${pl} -B`
+            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} ${pl} -B  -Dsurefire.rerunTestsCount=${reruns}`
         );
 
-        const failureDetected = results.stdout.includes("Failures: 5");
+        const failureDetected = results.stdout.includes(
+            "Failures: " + (reruns + 1)
+        );
         if (failureDetected && !isFailing) {
             report(
                 "OBO",
@@ -256,7 +272,7 @@ export async function detectOneByOne(
                     "\n\n\n" +
                     results.stdout
             );
-        } else if (!failureDetected && isFailing) {
+        } else if (isFailing && results.stdout.includes("Failures: 0")) {
             report(
                 "OBO-Brit",
                 "order: " +
