@@ -77,7 +77,8 @@ export async function flakewatch(project: ProjectInfo) {
                             `/home/flakewatch/clone/${project.name}`,
                             module,
                             project,
-                            commit
+                            commit,
+                            Math.round((24 * 60) / modifiedTests.length)
                         );
                     } catch (e) {
                         console.error(

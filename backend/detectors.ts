@@ -37,18 +37,25 @@ export async function runDetectors(
     projectPath: string,
     module: string,
     project: ProjectInfo,
-    commitSha: string
+    commitSha: string,
+    minutesAllowed: number
 ) {
     const fullModulePath = projectPath + "/" + module;
 
     const testArgs = project.mvnTestArgs ?? "";
     const pl = module ? `-pl ${module}` : "";
 
-    // we run `mvn test` and parse its output to get the list of all tests
-    await exec(`cd ${fullModulePath} && rm -rf target/surefire-reports`);
-    await exec(
-        `cd ${projectPath} && mvn test ${pl} ${testArgs} -DskipITs -Dmaven.test.failure.ignore=true -DtestFailureIgnore=true`
-    );
+    const surefireReportsExist = await fs
+        .access(fullModulePath + "/target/surefire-reports")
+        .then(() => true)
+        .catch(() => false);
+    if (!surefireReportsExist) {
+        // we run `mvn test` and parse its output to get the list of all tests
+        await exec(`cd ${fullModulePath} && rm -rf target/surefire-reports`);
+        await exec(
+            `cd ${projectPath} && mvn test ${pl} ${testArgs} -DskipITs -Dmaven.test.failure.ignore=true -DtestFailureIgnore=true`
+        );
+    }
     // modulePath/target/surefire-reports/TEST-*.xml has the test cases
     const reportFiles = await fs.readdir(
         fullModulePath + "/target/surefire-reports"
@@ -176,7 +183,7 @@ export async function detectNonDex(
     const runs = 10; // TODO: vary by # of tests detected (default is 3)
     try {
         const result = await exec(
-            `cd ${fullModulePath} && mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -DnondexRuns=${runs} -B`
+            `cd ${fullModulePath} && mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -DnondexRuns=${runs} -DnondexMode=ONE -B`
         );
         if (qualifiedTestName.includes("testGetAlphabet")) console.log(result);
     } catch (e) {
@@ -251,12 +258,20 @@ export async function detectOneByOne(
     isFailing: boolean,
     report: ReportFn
 ) {
-    const reruns = 4; // TODO: vary by # of tests detected
     // run every test before qualifiedTestName
     for (const test of allTests) {
         if (test === qualifiedTestName) continue;
+
+        const initialResults = await exec(
+            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} ${pl} -B`
+        );
+        const initiallyFailed = initialResults.stdout.includes("FAILURE!");
+        if ((!isFailing && !initiallyFailed) || (isFailing && initiallyFailed))
+            continue;
+
+        const reruns = 4;
         const results = await exec(
-            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} ${pl} -B  -Dsurefire.rerunTestsCount=${reruns}`
+            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} ${pl} -B -Dsurefire.rerunTestsCount=${reruns}`
         );
 
         const failureDetected = results.stdout.includes(
