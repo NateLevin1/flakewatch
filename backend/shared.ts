@@ -13,6 +13,7 @@ export type DetectionCause =
     | "NonDex"
     | "Isolation"
     | "OBO"
+    | "OBO-Brit"
     | "iDFl-OD"
     | "iDFl-NOD";
 export type UpdateResults = {

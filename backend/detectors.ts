@@ -93,22 +93,20 @@ export async function runDetectors(
         }
     };
 
-    if (
+    const isFailing =
         (await run(
             async () => await detectIsolation(detectorInfo, commitSha, report)
-        )) === "failing"
-    ) {
-        console.log(
-            project.name +
-                ": " +
-                qualifiedTestName +
-                " is a failing test - ignoring it for flaky detection."
-        );
-        return [];
+        )) === "failing";
+    if (isFailing) {
+        console.log(qualifiedTestName + " is a failing test");
     }
+    await run(
+        async () => await detectOneByOne(detectorInfo, isFailing, report)
+    );
     await run(async () => await detectIDFlakies(detectorInfo, report));
-    await run(async () => await detectNonDex(detectorInfo, report));
-    await run(async () => await detectOneByOne(detectorInfo, report));
+    if (!isFailing) {
+        await run(async () => await detectNonDex(detectorInfo, report));
+    }
 
     if (detections.length > 0) {
         console.log(
@@ -237,6 +235,7 @@ export async function detectIsolation(
 // Section 2.3.2 One-By-One in Lam et al https://cs.gmu.edu/~winglam/publications/2020/LamETAL20OOPSLA.pdf
 export async function detectOneByOne(
     { qualifiedTestName, allTests, projectPath, pl }: DetectorInfo,
+    isFailing: boolean,
     report: ReportFn
 ) {
     // run every test before qualifiedTestName
@@ -246,8 +245,8 @@ export async function detectOneByOne(
             `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} ${pl} -B`
         );
 
-        const flakyDetected = results.stdout.includes("FAILURE!");
-        if (flakyDetected) {
+        const failureDetected = results.stdout.includes("Failures: 5");
+        if (failureDetected && !isFailing) {
             report(
                 "OBO",
                 "order: " +
@@ -257,7 +256,16 @@ export async function detectOneByOne(
                     "\n\n\n" +
                     results.stdout
             );
-            break;
+        } else if (!failureDetected && isFailing) {
+            report(
+                "OBO-Brit",
+                "order: " +
+                    test +
+                    "," +
+                    qualifiedTestName +
+                    "\n\n\n" +
+                    results.stdout
+            );
         }
     }
 }
