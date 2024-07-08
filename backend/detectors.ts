@@ -38,8 +38,10 @@ export async function runDetectors(
     module: string,
     project: ProjectInfo,
     commitSha: string,
-    minutesAllowed: number
+    minsAllowed: number
 ) {
+    const startTime = Date.now();
+    const elapsedMins = () => (Date.now() - startTime) / 1000 / 60;
     const fullModulePath = projectPath + "/" + module;
 
     const testArgs = project.mvnTestArgs ?? "";
@@ -100,6 +102,9 @@ export async function runDetectors(
         }
     };
 
+    // we run isolation and OBO first, without regard for elapsed time
+    // this is because we cannot split up OBO's runs, and we need failing info to run OBO.
+    // luckily, these are the fastest detectors! so we can afford to run them first.
     const isFailing =
         (await run(
             async () => await detectIsolation(detectorInfo, commitSha, report)
@@ -110,9 +115,30 @@ export async function runDetectors(
     await run(
         async () => await detectOneByOne(detectorInfo, isFailing, report)
     );
-    await run(async () => await detectIDFlakies(detectorInfo, report));
-    if (!isFailing) {
-        await run(async () => await detectNonDex(detectorInfo, report));
+
+    const percentToRun = 0.2; // ensure that (10 * percentToRun) and (1 / percentToRun) are integers
+    for (let i = 0; i < 1 / percentToRun; i++) {
+        if (elapsedMins() > minsAllowed) {
+            console.log(
+                `Ran out of time for ${qualifiedTestName} after ${elapsedMins()} minutes. Completed ${
+                    i * percentToRun * 100
+                }% of iDFl and NonDex runs.`
+            );
+            break;
+        }
+
+        if (!detections.find((d) => d.startsWith("iDFl"))) {
+            await run(
+                async () =>
+                    await detectIDFlakies(detectorInfo, percentToRun, report)
+            );
+        }
+        if (!isFailing && !detections.includes("NonDex")) {
+            await run(
+                async () =>
+                    await detectNonDex(detectorInfo, percentToRun, report)
+            );
+        }
     }
 
     if (detections.length > 0) {
@@ -141,6 +167,7 @@ export async function runDetectors(
 type FlakyListsType = { dts: { name: string; type: "OD" | "NOD" }[] };
 export async function detectIDFlakies(
     { qualifiedTestName, fullModulePath }: DetectorInfo,
+    percentToRun: number,
     report: ReportFn
 ) {
     const testName = qualifiedTestName.replace("#", ".");
@@ -151,11 +178,12 @@ export async function detectIDFlakies(
         .then((file) => JSON.parse(file) as FlakyListsType)
         .catch(() => undefined);
 
-    const rounds = 100; // TODO: vary by # of tests detected
+    const rounds = 100 * percentToRun;
     // TODO: run once in in ReverseC+M order
     // await exec(
     //     `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=reverse-class-method -Ddt.detector.original_order.all_must_pass=false -Ddt.randomize.rounds=${rounds}`
     // );
+    // TODO: this will not detect test that all fail during the first run, but all pass during the second run
     await exec(
         `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=random-class-method -Ddt.detector.original_order.all_must_pass=false -Ddt.randomize.rounds=${rounds}`
     );
@@ -178,9 +206,10 @@ export async function detectIDFlakies(
 
 export async function detectNonDex(
     { qualifiedTestName, fullModulePath }: DetectorInfo,
+    percentToRun: number,
     report: ReportFn
 ) {
-    const runs = 10; // TODO: vary by # of tests detected (default is 3)
+    const runs = 10 * percentToRun;
     try {
         const result = await exec(
             `cd ${fullModulePath} && mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -DnondexRuns=${runs} -DnondexMode=ONE -B`
@@ -213,7 +242,7 @@ export async function detectIsolation(
     commitSha: string,
     report: ReportFn
 ) {
-    const reruns = 99; // TODO: vary by # of tests detected
+    const reruns = 99; // TODO: can we vary if this is a long-running test?
     let results;
     let reportIfFail = false;
     try {
