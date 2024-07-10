@@ -90,9 +90,11 @@ async function orchestrateProject(project: Project) {
         try {
             await exec(`docker rm ${updateContainerName}`);
         } catch (e) {}
-        try {
-            await exec(`docker rm flakewatch-${project.name}`);
-        } catch (e) {}
+        if (!project.debug?.leaveContainers) {
+            try {
+                await exec(`docker rm flakewatch-${project.name}`);
+            } catch (e) {}
+        }
     }
 }
 
@@ -177,7 +179,9 @@ async function readFlakewatchResultsToDB(project: Project) {
             `docker commit ${containerName} flakewatch-failure-${project.name}-${firstDetectTime}:latest`
         );
     }
-    await exec(`docker rm ${containerName}`);
+    if (!project.debug?.leaveContainers) {
+        await exec(`docker rm ${containerName}`);
+    }
 
     for (const { testName, sha } of results.ciDetections) {
         console.log(project.name + ": " + testName + " is flaky in CI.");

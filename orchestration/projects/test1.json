@@ -1,5 +1,10 @@
 {
     "name": "test1",
     "gitURL": "https://github.com/NateLevin1/test-nondex",
-    "branch": "main"
+    "branch": "main",
+    "debug": {
+        "minsAllowedPerModuleCommit": 1,
+        "minsAllowedPerTest": 1,
+        "leaveContainers": true
+    }
 }

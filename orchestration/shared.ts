@@ -28,6 +28,11 @@ export type Project = {
     mvnTestArgs?: string;
     owner: string;
     repo: string;
+    debug?: {
+        minsAllowedPerModuleCommit?: number;
+        minsAllowedPerTest?: number;
+        leaveContainers?: boolean;
+    };
 };
 export type ProjectInfo = Project & {
     lastCheckedCommit?: string;

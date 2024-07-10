@@ -78,9 +78,9 @@ export async function flakewatch(project: ProjectInfo) {
                         moduleCommits.push({ module, commit });
                 }
 
-                const minsAllowedPerModuleCommit = Math.round(
-                    (6 * 60) / moduleCommits.length
-                );
+                const minsAllowedPerModuleCommit =
+                    project.debug?.minsAllowedPerModuleCommit ??
+                    Math.floor((6 * 60) / moduleCommits.length);
                 const moduleCommitInfos: ({
                     module: string;
                     commit: string;
@@ -104,9 +104,9 @@ export async function flakewatch(project: ProjectInfo) {
                 }
 
                 // * Run flakiness detectors
-                const minsAllowedPerTest = Math.round(
-                    (18 * 60) / modifiedTests.length
-                );
+                const minsAllowedPerTest =
+                    project.debug?.minsAllowedPerTest ??
+                    Math.floor((18 * 60) / modifiedTests.length);
                 for (const { testName, commit, module } of modifiedTests) {
                     const moduleCommitInfo = moduleCommitInfos.find(
                         ({ module: m, commit: c }) =>
