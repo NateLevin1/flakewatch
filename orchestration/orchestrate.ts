@@ -152,6 +152,16 @@ async function readFlakewatchResultsToDB(project: Project) {
                     if (existing.fixCommit) {
                         insert();
                     } else {
+                        console.log(
+                            project.name +
+                                ": " +
+                                testName +
+                                " still flakes: " +
+                                newCategory +
+                                " (was " +
+                                existing.category +
+                                ")"
+                        );
                         updateFlakyCategory(
                             existing.ulid,
                             existing.category ?? "",
@@ -184,7 +194,7 @@ async function readFlakewatchResultsToDB(project: Project) {
     }
 
     for (const { testName, sha } of results.ciDetections) {
-        console.log(project.name + ": " + testName + " is flaky in CI.");
+        console.log(project.name + ": " + testName + " was flaky in CI.");
         const existing = getFlaky(testName);
         const insert = () => {
             insertFlaky({
