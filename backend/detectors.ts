@@ -1,8 +1,8 @@
 import util from "util";
 import { exec as execC } from "child_process";
-import fs from "fs/promises";
 import AdmZip from "adm-zip";
 import type { DetectionCause, ProjectInfo } from "./shared.js";
+import type { ModuleCommitInfo } from "./moduledetectors.js";
 
 export const exec = util.promisify(execC);
 
@@ -37,58 +37,21 @@ export async function runDetectors(
     projectPath: string,
     module: string,
     project: ProjectInfo,
+    moduleCommitInfo: ModuleCommitInfo,
     commitSha: string,
     minsAllowed: number
 ) {
     const startTime = Date.now();
-    const elapsedMins = () => (Date.now() - startTime) / 1000 / 60;
+
     const fullModulePath = projectPath + "/" + module;
-
-    const testArgs = project.mvnTestArgs ?? "";
     const pl = module ? `-pl ${module}` : "";
-
-    const surefireReportsExist = await fs
-        .access(fullModulePath + "/target/surefire-reports")
-        .then(() => true)
-        .catch(() => false);
-    if (!surefireReportsExist) {
-        // we run `mvn test` and parse its output to get the list of all tests
-        await exec(`cd ${fullModulePath} && rm -rf target/surefire-reports`);
-        await exec(
-            `cd ${projectPath} && mvn test ${pl} ${testArgs} -DskipITs -Dmaven.test.failure.ignore=true -DtestFailureIgnore=true`
-        );
-    }
-    // modulePath/target/surefire-reports/TEST-*.xml has the test cases
-    const reportFiles = await fs.readdir(
-        fullModulePath + "/target/surefire-reports"
-    );
-    const allTestsPromises = [] as Promise<string[]>[];
-    for (const file of reportFiles) {
-        if (!file.startsWith("TEST") || file.includes("ALLCLASS")) continue;
-        allTestsPromises.push(
-            new Promise(async (resolve) => {
-                const content = await fs.readFile(
-                    fullModulePath + "/target/surefire-reports/" + file,
-                    "utf-8"
-                );
-                const className = file.slice(5, -4);
-                const tests = content.matchAll(/<testcase name="([^"]+)"/g);
-                const result = [];
-                for (const test of tests) {
-                    if (test[1]) result.push(className + "#" + test[1]);
-                }
-                resolve(result);
-            })
-        );
-    }
-    const allTests = (await Promise.all(allTestsPromises)).flat();
 
     const detectorInfo = {
         qualifiedTestName,
         projectPath,
         fullModulePath,
         module,
-        allTests,
+        allTests: moduleCommitInfo.allTests,
         pl,
     } satisfies DetectorInfo;
 
@@ -115,30 +78,18 @@ export async function runDetectors(
     await run(
         async () => await detectOneByOne(detectorInfo, isFailing, report)
     );
+    if (!isFailing) {
+        const nonDexTimeoutMs =
+            minsAllowed * 60 * 1000 - (Date.now() - startTime); // remaining time
+        await run(
+            async () =>
+                await detectNonDex(detectorInfo, nonDexTimeoutMs, report)
+        );
+    }
 
-    const percentToRun = 0.2; // ensure that (10 * percentToRun) and (1 / percentToRun) are integers
-    for (let i = 0; i < 1 / percentToRun; i++) {
-        if (elapsedMins() > minsAllowed) {
-            console.log(
-                `Ran out of time for ${qualifiedTestName} after ${elapsedMins()} minutes. Completed ${
-                    i * percentToRun * 100
-                }% of iDFl and NonDex runs.`
-            );
-            break;
-        }
-
-        if (!detections.find((d) => d.startsWith("iDFl"))) {
-            await run(
-                async () =>
-                    await detectIDFlakies(detectorInfo, percentToRun, report)
-            );
-        }
-        if (!isFailing && !detections.includes("NonDex")) {
-            await run(
-                async () =>
-                    await detectNonDex(detectorInfo, percentToRun, report)
-            );
-        }
+    for (const test of moduleCommitInfo.idFlakiesResults) {
+        if (test.test !== qualifiedTestName) continue;
+        report(`iDFl-${test.type}`, JSON.stringify(test));
     }
 
     if (detections.length > 0) {
@@ -164,57 +115,16 @@ export async function runDetectors(
     return detections;
 }
 
-type FlakyListsType = { dts: { name: string; type: "OD" | "NOD" }[] };
-export async function detectIDFlakies(
-    { qualifiedTestName, fullModulePath }: DetectorInfo,
-    percentToRun: number,
-    report: ReportFn
-) {
-    const testName = qualifiedTestName.replace("#", ".");
-    const flakyListsPath =
-        fullModulePath + "/.dtfixingtools/detection-results/flaky-lists.json";
-    const existingFlakyList = await fs
-        .readFile(flakyListsPath, "utf-8")
-        .then((file) => JSON.parse(file) as FlakyListsType)
-        .catch(() => undefined);
-
-    const rounds = 100 * percentToRun;
-    // TODO: run once in in ReverseC+M order
-    // await exec(
-    //     `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=reverse-class-method -Ddt.detector.original_order.all_must_pass=false -Ddt.randomize.rounds=${rounds}`
-    // );
-    // TODO: this will not detect test that all fail during the first run, but all pass during the second run
-    await exec(
-        `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=random-class-method -Ddt.detector.original_order.all_must_pass=false -Ddt.randomize.rounds=${rounds}`
-    );
-
-    const flakyLists = JSON.parse(
-        await fs.readFile(flakyListsPath, "utf-8")
-    ) as FlakyListsType;
-    const dts = flakyLists.dts.concat(existingFlakyList?.dts ?? []); // merge with existing flaky list
-    for (const flaky of dts) {
-        if (flaky.name === testName) {
-            report(
-                ("iDFl-" + flaky.type) as DetectionCause,
-                JSON.stringify(flaky, null, 2)
-            );
-        }
-    }
-    // write the updated flaky list back to the file
-    await fs.writeFile(flakyListsPath, JSON.stringify({ dts }, null, 2));
-}
-
 export async function detectNonDex(
     { qualifiedTestName, fullModulePath }: DetectorInfo,
-    percentToRun: number,
+    timeoutMs: number,
     report: ReportFn
 ) {
-    const runs = 10 * percentToRun;
+    const timeoutSecs = Math.round(timeoutMs / 1000);
     try {
-        const result = await exec(
-            `cd ${fullModulePath} && mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -DnondexRuns=${runs} -DnondexMode=ONE -B`
+        await exec(
+            `cd ${fullModulePath} && timeout ${timeoutSecs} mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -DnondexRuns=10 -DnondexMode=ONE -B`
         );
-        if (qualifiedTestName.includes("testGetAlphabet")) console.log(result);
     } catch (e) {
         // this is expected and is actually what we want
         const error = e as { stdout: string; stderr: string };

@@ -2,11 +2,11 @@ import { runDetectors, exec } from "./detectors.js";
 import { simpleGit, type LogResult, type DefaultLogFields } from "simple-git";
 import fs from "fs/promises";
 import { Octokit } from "@octokit/rest";
-import type {
-    DetectionCause,
-    FlakewatchResults,
-    ProjectInfo,
-} from "./shared.js";
+import type { FlakewatchResults, ProjectInfo } from "./shared.js";
+import {
+    runModuleDetectors,
+    type ModuleCommitInfo,
+} from "./moduledetectors.js";
 
 if (!process.argv[2]) throw new Error("Missing project info argument");
 const projectInfo = JSON.parse(process.argv[2]) as ProjectInfo;
@@ -58,6 +58,7 @@ export async function flakewatch(project: ProjectInfo) {
             const modifiedTests = await findModifiedTests(log);
             if (modifiedTests.length > 0) {
                 const sha = log.latest.hash.slice(0, 7);
+                const projectPath = `/home/flakewatch/clone/${project.name}`;
                 console.log(
                     `${project.name}: ${
                         modifiedTests.length
@@ -66,18 +67,74 @@ export async function flakewatch(project: ProjectInfo) {
                         .join(", ")}`
                 );
 
+                const moduleCommits: { module: string; commit: string }[] = [];
+                for (const { module, commit } of modifiedTests) {
+                    if (
+                        !moduleCommits.find(
+                            ({ module: m, commit: c }) =>
+                                m === module && c === commit
+                        )
+                    )
+                        moduleCommits.push({ module, commit });
+                }
+
+                const minsAllowedPerModuleCommit = Math.round(
+                    (6 * 60) / moduleCommits.length
+                );
+                const moduleCommitInfos: ({
+                    module: string;
+                    commit: string;
+                } & ModuleCommitInfo)[] = [];
+                for (const { module, commit } of moduleCommits) {
+                    await git.reset(["--hard"]);
+                    await git.checkout(commit);
+                    const moduleCommitInfo = await runModuleDetectors(
+                        projectPath,
+                        module,
+                        project,
+                        minsAllowedPerModuleCommit
+                    );
+                    moduleCommitInfos.push({
+                        ...moduleCommitInfo,
+                        module,
+                        commit,
+                    });
+                    await git.reset(["--hard"]);
+                    await git.checkout(project.branch);
+                }
+
                 // * Run flakiness detectors
+                const minsAllowedPerTest = Math.round(
+                    (18 * 60) / modifiedTests.length
+                );
                 for (const { testName, commit, module } of modifiedTests) {
+                    const moduleCommitInfo = moduleCommitInfos.find(
+                        ({ module: m, commit: c }) =>
+                            m === module && c === commit
+                    );
+                    if (!moduleCommitInfo) {
+                        console.error(
+                            "Failed to find module commit info for " +
+                                module +
+                                " at " +
+                                commit +
+                                ". Skipping test " +
+                                testName +
+                                "."
+                        );
+                        continue;
+                    }
                     await git.reset(["--hard"]);
                     await git.checkout(commit);
                     try {
                         const detections = await runDetectors(
                             testName,
-                            `/home/flakewatch/clone/${project.name}`,
+                            projectPath,
                             module,
                             project,
+                            moduleCommitInfo,
                             commit,
-                            Math.round((23 * 60) / modifiedTests.length)
+                            minsAllowedPerTest
                         );
                         result.detections.push({
                             testName,

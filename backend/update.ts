@@ -1,8 +1,7 @@
-import util from "util";
-import { exec as execC } from "child_process";
 import fs from "fs/promises";
 import { simpleGit } from "simple-git";
 import type { ProjectInfo, UpdateResults } from "./shared.js";
+import { exec } from "./detectors.js";
 
 if (!process.argv[2]) throw new Error("Missing project info argument");
 const projectInfo = JSON.parse(process.argv[2]) as ProjectInfo;
@@ -10,8 +9,6 @@ const projectInfo = JSON.parse(process.argv[2]) as ProjectInfo;
 export const git = simpleGit({ baseDir: "/home/flakewatch/clone" });
 
 update(projectInfo);
-
-export const exec = util.promisify(execC);
 
 export async function update(project: ProjectInfo) {
     console.log(project.name + ": Started updater.");
