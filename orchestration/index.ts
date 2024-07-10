@@ -13,7 +13,7 @@ import { orchestrate } from "./orchestrate.js";
 
 if (!process.env.GITHUB_TOKEN)
     console.warn("No GITHUB_TOKEN provided. CI logs will not be downloaded.");
-if (process.env.SAVE_FAILURES)
+if (process.env.SAVE_FAILURES === "true")
     console.log("SAVE_FAILURES is set. Will save failure images in Docker.");
 
 const app = express();

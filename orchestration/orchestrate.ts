@@ -171,7 +171,7 @@ async function readFlakewatchResultsToDB(project: Project) {
         }
     }
 
-    if (flakyFirstDetected && process.env.SAVE_FAILURES) {
+    if (flakyFirstDetected && process.env.SAVE_FAILURES === "true") {
         // save the image
         await exec(
             `docker commit ${containerName} flakewatch-failure-${project.name}-${firstDetectTime}:latest`
