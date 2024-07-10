@@ -68,20 +68,20 @@ async function orchestrateProject(project: Project) {
         } catch (e) {}
         await exec(`docker commit ${updateContainerName} ${projectImageName}`);
         await exec(`docker rm ${updateContainerName}`);
+        if (updateResults.shouldRunFlakewatch) {
+            const startCmd = `/bin/bash -c "cd /home/flakewatch/flakewatch/backend && rm -f /home/flakewatch/flakewatch-results.json && rm -rf /home/flakewatch/ci-logs && npm run flakewatch -- '${passedInInfo}'"`;
+            // NOTE: we expect the below line could take hours
+            await exec(
+                `docker run --name='flakewatch-${project.name}' -i ${projectImageName} ${startCmd}`
+            );
+            await readFlakewatchResultsToDB(project);
+        }
         if (updateResults.newLastCheckedCommit) {
             setProjectLastCheckedCommit(
                 project.name,
                 updateResults.newLastCheckedCommit
             );
         }
-        if (!updateResults.shouldRunFlakewatch) return;
-
-        const startCmd = `/bin/bash -c "cd /home/flakewatch/flakewatch/backend && rm -f /home/flakewatch/flakewatch-results.json && rm -rf /home/flakewatch/ci-logs && npm run flakewatch -- '${passedInInfo}'"`;
-        // NOTE: we expect the below line could take hours
-        await exec(
-            `docker run --name='flakewatch-${project.name}' -i ${projectImageName} ${startCmd}`
-        );
-        await readFlakewatchResultsToDB(project);
     } catch (e) {
         console.error(
             project.name + ": Something went wrong during orchestration:"
@@ -90,11 +90,9 @@ async function orchestrateProject(project: Project) {
         try {
             await exec(`docker rm ${updateContainerName}`);
         } catch (e) {}
-        if (!project.debug?.leaveContainers) {
-            try {
-                await exec(`docker rm flakewatch-${project.name}`);
-            } catch (e) {}
-        }
+        try {
+            await exec(`docker rm flakewatch-${project.name}`);
+        } catch (e) {}
     }
 }
 
