@@ -70,9 +70,8 @@ export async function flakewatch(project: ProjectInfo) {
                 for (const { testName, commit, module } of modifiedTests) {
                     await git.reset(["--hard"]);
                     await git.checkout(commit);
-                    let detections: DetectionCause[] = [];
                     try {
-                        detections = await runDetectors(
+                        const detections = await runDetectors(
                             testName,
                             `/home/flakewatch/clone/${project.name}`,
                             module,
@@ -80,6 +79,12 @@ export async function flakewatch(project: ProjectInfo) {
                             commit,
                             Math.round((23 * 60) / modifiedTests.length)
                         );
+                        result.detections.push({
+                            testName,
+                            detections,
+                            module,
+                            sha: commit,
+                        });
                     } catch (e) {
                         console.error(
                             project.name +
@@ -90,15 +95,6 @@ export async function flakewatch(project: ProjectInfo) {
                     }
                     await git.reset(["--hard"]);
                     await git.checkout(project.branch);
-
-                    if (detections.length > 0) {
-                        result.detections.push({
-                            testName,
-                            detections,
-                            module,
-                            sha: commit,
-                        });
-                    }
                 }
                 console.log(project.name + ": Finished running detectors.");
             }

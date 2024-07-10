@@ -28,7 +28,7 @@ export async function orchestrate() {
 async function orchestrateProject(project: Project) {
     const passedInInfo = JSON.stringify({
         ...project,
-        lastCheckedCommit: "3de2382089e601a56daa091f807fd1a0855971e6", //getProjectLastCheckedCommit(project.name),
+        lastCheckedCommit: "1fb14a8deddd6b9a0a40c9ea49e0c95b1ca18078", //getProjectLastCheckedCommit(project.name),
         githubToken: process.env.GITHUB_TOKEN!,
     } satisfies ProjectInfo).replaceAll('"', '\\"');
 
@@ -97,6 +97,8 @@ async function orchestrateProject(project: Project) {
 }
 
 async function readFlakewatchResultsToDB(project: Project) {
+    const firstDetectTime = Date.now();
+
     const resultsPath = `./results/flakewatch-results-${project.name}.json`;
     await fs.mkdir("results", { recursive: true });
     await fs.mkdir("ci-logs/" + project.name, { recursive: true });
@@ -112,30 +114,32 @@ async function readFlakewatchResultsToDB(project: Project) {
     await exec(
         `docker cp ${containerName}:/home/flakewatch/failure-logs/. ./failure-logs/${project.name}/`
     );
-    await exec(`docker rm ${containerName}`);
 
     const results = JSON.parse(
         (await fs.readFile(resultsPath)).toString()
     ) as FlakewatchResults;
 
+    let flakyFirstDetected = false;
+
     for (const { testName, detections, sha, module } of results.detections) {
-        console.log(
-            project.name +
-                ": " +
-                testName +
-                " is flaky. Reason(s): " +
-                detections.join(", ")
-        );
         const existing = getFlaky(testName);
 
         if (detections.length > 0) {
             // add to DB
             const newCategory = detections.join("&");
             const insert = () => {
+                flakyFirstDetected = true;
+                console.log(
+                    project.name +
+                        ": " +
+                        testName +
+                        " is newly flaky. Reason(s): " +
+                        detections.join(", ")
+                );
                 insertFlaky({
                     projectURL: project.gitURL,
                     firstDetectCommit: sha,
-                    firstDetectTime: Date.now(),
+                    firstDetectTime,
                     modulePath: module,
                     qualifiedTestName: testName,
                     category: newCategory,
@@ -158,11 +162,22 @@ async function readFlakewatchResultsToDB(project: Project) {
             }
         } else {
             if (existing) {
+                console.log(
+                    project.name + ": " + testName + " is no longer flaky."
+                );
                 // we previously detected this test as flaky, but we no longer do
-                markFlakyFixed(sha, Date.now(), testName);
+                markFlakyFixed(sha, firstDetectTime, testName);
             }
         }
     }
+
+    if (flakyFirstDetected && process.env.SAVE_FAILURES) {
+        // save the image
+        await exec(
+            `docker commit ${containerName} flakewatch-failure-${project.name}-${firstDetectTime}:latest`
+        );
+    }
+    await exec(`docker rm ${containerName}`);
 
     for (const { testName, sha } of results.ciDetections) {
         console.log(project.name + ": " + testName + " is flaky in CI.");
@@ -171,7 +186,7 @@ async function readFlakewatchResultsToDB(project: Project) {
             insertFlaky({
                 projectURL: project.gitURL,
                 firstDetectCommit: sha,
-                firstDetectTime: Date.now(),
+                firstDetectTime,
                 modulePath: "UNKNOWN!", // TODO: how can we know this information?
                 qualifiedTestName: testName,
                 category: "CI",
