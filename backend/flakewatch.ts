@@ -20,7 +20,7 @@ export const octokit: Octokit = new Octokit({
 flakewatch(projectInfo);
 
 export async function flakewatch(project: ProjectInfo) {
-    console.log(project.name + ": Started flakewatch.");
+    console.log("Started flakewatch.");
     let result: FlakewatchResults = {
         detections: [],
         ciDetections: [],
@@ -45,9 +45,7 @@ export async function flakewatch(project: ProjectInfo) {
         if (!log.latest) return;
 
         if (!lastCheckedCommit) {
-            console.log(
-                `${project.name}: Initializing at commit ${log.latest.hash}`
-            );
+            console.log(`Initializing at commit ${log.latest.hash}`);
             return;
         }
 
@@ -60,7 +58,7 @@ export async function flakewatch(project: ProjectInfo) {
                 const sha = log.latest.hash.slice(0, 7);
                 const projectPath = `/home/flakewatch/clone/${project.name}`;
                 console.log(
-                    `${project.name}: ${
+                    `${
                         modifiedTests.length
                     } tests modified up to commit ${sha}: ${modifiedTests
                         .map((s) => s.testName.split(".").at(-1))
@@ -81,6 +79,9 @@ export async function flakewatch(project: ProjectInfo) {
                 const minsAllowedPerModuleCommit =
                     project.debug?.minsAllowedPerModuleCommit ??
                     Math.floor((6 * 60) / moduleCommits.length);
+                console.log(
+                    `Found ${moduleCommits.length} module+commit combos. Spending ${minsAllowedPerModuleCommit} mins per combo.`
+                );
                 const moduleCommitInfos: ({
                     module: string;
                     commit: string;
@@ -88,6 +89,7 @@ export async function flakewatch(project: ProjectInfo) {
                 for (const { module, commit } of moduleCommits) {
                     await git.reset(["--hard"]);
                     await git.checkout(commit);
+                    console.log(`Getting info for ${module} at ${commit}`);
                     const moduleCommitInfo = await runModuleDetectors(
                         projectPath,
                         module,
@@ -107,6 +109,9 @@ export async function flakewatch(project: ProjectInfo) {
                 const minsAllowedPerTest =
                     project.debug?.minsAllowedPerTest ??
                     Math.floor((18 * 60) / modifiedTests.length);
+                console.log(
+                    `Beginning test-specific flakiness detectors. Spending ${minsAllowedPerTest} mins per test.`
+                );
                 for (const { testName, commit, module } of modifiedTests) {
                     const moduleCommitInfo = moduleCommitInfos.find(
                         ({ module: m, commit: c }) =>
@@ -144,8 +149,7 @@ export async function flakewatch(project: ProjectInfo) {
                         });
                     } catch (e) {
                         console.error(
-                            project.name +
-                                ": Something went wrong when running detectors for " +
+                            "Something went wrong when running detectors for " +
                                 testName
                         );
                         console.error(e);
@@ -153,7 +157,7 @@ export async function flakewatch(project: ProjectInfo) {
                     await git.reset(["--hard"]);
                     await git.checkout(project.branch);
                 }
-                console.log(project.name + ": Finished running detectors.");
+                console.log("Finished running detectors.");
             }
         }
     } finally {
@@ -384,9 +388,7 @@ async function downloadCILogs(
                     if (result.find((r) => r.testName === qualifiedTestName))
                         continue; // duplicate
 
-                    console.log(
-                        `${project.name}: ${qualifiedTestName} failed in CI`
-                    );
+                    console.log(`${qualifiedTestName} failed in CI`);
                     result.push({
                         testName: qualifiedTestName,
                         sha: commit.hash,

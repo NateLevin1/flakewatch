@@ -11,7 +11,7 @@ export const git = simpleGit({ baseDir: "/home/flakewatch/clone" });
 update(projectInfo);
 
 export async function update(project: ProjectInfo) {
-    console.log(project.name + ": Started updater.");
+    console.log("Started updater.");
     let result: UpdateResults = {
         compileSuccess: false,
         shouldRunFlakewatch: false,
@@ -48,10 +48,9 @@ export async function update(project: ProjectInfo) {
                 `cd /home/flakewatch/clone/${project.name} && mvn install -ff -B -DskipTests`
             );
             result.compileSuccess = true;
-            console.log(project.name + ": Compilation succeeded.");
+            console.log("Compilation succeeded.");
         } catch (e) {
-            // compilation failed
-            console.error(project.name + ": Compilation failed: ");
+            console.error("Compilation failed: ");
             console.error(e);
         }
 
@@ -73,22 +72,18 @@ export async function update(project: ProjectInfo) {
 
         if (!lastCheckedCommit) {
             result.newLastCheckedCommit = log.latest.hash;
-            console.log(
-                `${project.name}: Initializing at commit ${log.latest.hash}`
-            );
+            console.log(`Initializing at commit ${log.latest.hash}`);
             return;
         }
 
         const newCommitsExist = log.latest.hash !== lastCheckedCommit;
         if (newCommitsExist) {
             result.newLastCheckedCommit = log.latest.hash;
-            console.log(
-                `${project.name}: ${log.all.length} new commit(s) found`
-            );
+            console.log(`${log.all.length} new commit(s) found`);
             result.shouldRunFlakewatch = true;
         }
     } catch (e) {
-        console.error(project.name + ": Error updating project: ");
+        console.error("Error updating project: ");
         console.error(e);
     } finally {
         await fs.writeFile(

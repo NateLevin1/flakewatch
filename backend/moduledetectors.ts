@@ -27,6 +27,7 @@ export async function runModuleDetectors(
     const testArgs = project.mvnTestArgs ?? "";
     const pl = module ? `-pl ${module}` : "";
 
+    console.log("Running module detectors for " + module);
     // we run `mvn test` and parse its output to get the list of all tests
     await exec(`cd ${fullModulePath} && rm -rf target/surefire-reports`);
     await exec(
@@ -56,6 +57,7 @@ export async function runModuleDetectors(
         );
     }
     const allTests = (await Promise.all(allTestsPromises)).flat();
+    console.log("Found " + allTests.length + " tests in " + module);
 
     const idFlakiesTimeoutMs =
         minsAllowed * 60 * 1000 - (Date.now() - startTime); // remaining time
@@ -63,6 +65,7 @@ export async function runModuleDetectors(
         fullModulePath,
         idFlakiesTimeoutMs
     );
+    console.log("Finished iDFlakies - given " + idFlakiesTimeoutMs + "ms");
 
     return { allTests, idFlakiesResults };
 }
