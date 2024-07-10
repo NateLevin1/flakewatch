@@ -86,10 +86,11 @@ export async function flakewatch(project: ProjectInfo) {
                     module: string;
                     commit: string;
                 } & ModuleCommitInfo)[] = [];
+                console.log("Getting module commit infos:");
                 for (const { module, commit } of moduleCommits) {
                     await git.reset(["--hard"]);
                     await git.checkout(commit);
-                    console.log(`Getting info for ${module} at ${commit}`);
+                    console.log(` - getting mod "${module}" @ "${commit}"`);
                     const moduleCommitInfo = await runModuleDetectors(
                         projectPath,
                         module,
@@ -110,7 +111,7 @@ export async function flakewatch(project: ProjectInfo) {
                     project.debug?.minsAllowedPerTest ??
                     Math.floor((18 * 60) / modifiedTests.length);
                 console.log(
-                    `Beginning test-specific flakiness detectors. Spending ${minsAllowedPerTest} mins per test.`
+                    `Running test-specific flakiness detectors. Spending ${minsAllowedPerTest} mins per test.`
                 );
                 for (const { testName, commit, module } of modifiedTests) {
                     const moduleCommitInfo = moduleCommitInfos.find(
@@ -388,7 +389,7 @@ async function downloadCILogs(
                     if (result.find((r) => r.testName === qualifiedTestName))
                         continue; // duplicate
 
-                    console.log(`${qualifiedTestName} failed in CI`);
+                    console.log(`[!] ${qualifiedTestName} failed in CI`);
                     result.push({
                         testName: qualifiedTestName,
                         sha: commit.hash,

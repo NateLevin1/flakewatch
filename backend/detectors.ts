@@ -65,9 +65,7 @@ export async function runDetectors(
         }
     };
 
-    console.log(
-        "Starting detectors for " + qualifiedTestName + " in " + fullModulePath
-    );
+    console.log(" - " + qualifiedTestName + " in " + fullModulePath);
 
     // we run isolation and OBO first, without regard for elapsed time
     // this is because we cannot split up OBO's runs, and we need failing info to run OBO.
@@ -79,11 +77,11 @@ export async function runDetectors(
     if (isFailing) {
         console.log(qualifiedTestName + " is a failing test");
     }
-    console.log("Finished isolation.");
+    console.log(" --- Finished isolation.");
     await run(
         async () => await detectOneByOne(detectorInfo, isFailing, report)
     );
-    console.log("Finished OBO.");
+    console.log(" --- Finished OBO.");
     if (!isFailing) {
         const nonDexTimeoutMs =
             minsAllowed * 60 * 1000 - (Date.now() - startTime); // remaining time
@@ -91,17 +89,25 @@ export async function runDetectors(
             async () =>
                 await detectNonDex(detectorInfo, nonDexTimeoutMs, report)
         );
-        console.log("Finished NonDex - given " + nonDexTimeoutMs + "ms");
+        console.log(
+            " --- Finished NonDex (given " +
+                Math.round(nonDexTimeoutMs / 1000) +
+                "s)"
+        );
     }
 
     for (const test of moduleCommitInfo.idFlakiesResults) {
         if (test.test !== qualifiedTestName) continue;
         report(`iDFl-${test.type}`, JSON.stringify(test));
+        console.log(" --- Reported iDFlakies for " + test.type);
     }
 
     if (detections.length > 0) {
         console.log(
-            qualifiedTestName + " is flaky. Reason(s): " + detections.join(", ")
+            "[!] " +
+                qualifiedTestName +
+                " is flaky. Reason(s): " +
+                detections.join(", ")
         );
 
         const zip = new AdmZip();
