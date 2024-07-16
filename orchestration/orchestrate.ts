@@ -7,7 +7,7 @@ import type {
     ProjectInfo,
     UpdateResults,
 } from "./shared.js";
-import { projects } from "./config.js";
+import { projects, reloadProjects } from "./config.js";
 import {
     getFlaky,
     getProjectLastCheckedCommit,
@@ -20,6 +20,7 @@ import {
 export const exec = util.promisify(execC);
 
 export async function orchestrate() {
+    reloadProjects();
     for (const project of projects) {
         orchestrateProject(project);
     }
