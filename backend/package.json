@@ -3,6 +3,7 @@
         "@octokit/rest": "^21.0.0",
         "adm-zip": "^0.5.14",
         "esno": "^4.7.0",
+        "java-parser": "^2.3.2",
         "simple-git": "^3.25.0",
         "typescript": "^5.5.2"
     },

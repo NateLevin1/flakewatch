@@ -7,6 +7,8 @@ import {
     runModuleDetectors,
     type ModuleCommitInfo,
 } from "./moduledetectors.js";
+import { parseTests, type Test } from "./parsetests.js";
+import path from "path";
 
 if (!process.argv[2]) throw new Error("Missing project info argument");
 const projectInfo = JSON.parse(process.argv[2]) as ProjectInfo;
@@ -187,7 +189,7 @@ export async function findModifiedTests(log: LogResult<DefaultLogFields>) {
             const lines = diff.split("\n");
 
             let curDetails: {
-                file: string[];
+                tests: Test[];
                 testPrefix: string;
                 module: string;
             } | null = null;
@@ -203,11 +205,11 @@ export async function findModifiedTests(log: LogResult<DefaultLogFields>) {
                     const qualifiedTestClass = filepath
                         .slice(srcTestIndex + 14, -5)
                         .replaceAll("/", ".");
+                    const filename = path.basename(filepath);
+                    const file = await git.show([commit.hash + ":" + filepath]);
                     curDetails = {
                         testPrefix: qualifiedTestClass,
-                        file: (
-                            await git.show([commit.hash + ":" + filepath])
-                        ).split("\n"),
+                        tests: parseTests(filename, file),
                         module:
                             srcTestIndex != 0
                                 ? filepath.slice(0, srcTestIndex - 1)
@@ -220,107 +222,40 @@ export async function findModifiedTests(log: LogResult<DefaultLogFields>) {
                     if (match) {
                         const start = parseInt(match[1]!) - 1;
                         const count = parseInt(match[2] ?? "1");
-                        if (count == 0) continue; // FIXME: handle this case
-                        const isJUnit3 =
-                            line.includes("public class") &&
-                            line.includes("extends TestCase");
+                        if (count == 0) continue; // FIXME: do we need to handle this case?
+
                         for (let i = 0; i < count; i++) {
                             const lineNum = start + i;
-                            // for each line, search for the test that it is potentially in
-                            const line = curDetails.file[lineNum]!.trimEnd();
-                            if (!line) continue;
-                            const indentation = line.search(/\S/);
-                            // while the indentation is decreasing, check if the line contains @Test. If so, add the test to modifiedTests
-                            let j = lineNum - 1;
-                            while (j >= 0) {
-                                const checkLine = curDetails.file[j]!.trimEnd();
-                                if (!checkLine) {
-                                    j--;
-                                    continue;
-                                }
-                                if (checkLine.search(/\S/) > indentation) break;
+                            for (const test of curDetails.tests) {
                                 if (
-                                    isJUnit3
-                                        ? checkLine.includes("public void") &&
-                                          checkLine.includes("test")
-                                        : checkLine.match(/@Test(?:$|\W)/)
-                                ) {
-                                    // now we have to find the actual test name
-                                    // most tests are written in syntax similar to either:
-                                    // @Test
-                                    // void testMethod() { ...
-                                    // or
-                                    // @Test void testMethod() { ...
-                                    // so we just run a regex on both lines to find the test name
-                                    // we will assume no JUnit 5 parameterized tests for now
-                                    const testRegex = /(\w+) *\(/;
-                                    let testName =
-                                        checkLine.match(testRegex)?.[1];
-                                    if (!testName) {
-                                        for (
-                                            let index = 1;
-                                            index < 9;
-                                            index++
-                                        ) {
-                                            const line =
-                                                curDetails.file[j + index]!;
-                                            if (!line) break;
-                                            const match = line.match(testRegex);
-                                            if (match) {
-                                                testName = match[1];
-                                                break;
-                                            }
-                                        }
-                                    }
+                                    lineNum < test.startLine ||
+                                    lineNum > test.endLine
+                                )
+                                    continue;
 
-                                    if (testName) {
-                                        const qualifiedTestName =
-                                            curDetails.testPrefix +
-                                            "#" +
-                                            testName;
-                                        if (
-                                            !modifiedTests.find(
-                                                (t) =>
-                                                    t.testName ===
-                                                    qualifiedTestName
-                                            )
-                                        ) {
-                                            modifiedTests.push({
-                                                testName: qualifiedTestName,
-                                                commit: commit.hash,
-                                                module: curDetails.module,
-                                                count: 1,
-                                            });
-                                        } else {
-                                            const existingTest =
-                                                modifiedTests.find(
-                                                    (t) =>
-                                                        t.testName ===
-                                                        qualifiedTestName
-                                                );
-                                            if (existingTest) {
-                                                existingTest.count =
-                                                    existingTest.count + 1;
-                                            }
-                                        }
-                                    } else {
-                                        console.warn(
-                                            "Failed to find test name in:\n" +
-                                                curDetails.file
-                                                    .slice(
-                                                        Math.max(j, 0),
-                                                        Math.min(
-                                                            j + 9,
-                                                            curDetails.file
-                                                                .length
-                                                        )
-                                                    )
-                                                    .join("\n")
-                                        );
+                                const qualifiedTestName =
+                                    curDetails.testPrefix + "#" + test.name;
+                                if (
+                                    !modifiedTests.find(
+                                        (t) => t.testName === qualifiedTestName
+                                    )
+                                ) {
+                                    modifiedTests.push({
+                                        testName: qualifiedTestName,
+                                        commit: commit.hash,
+                                        module: curDetails.module,
+                                        count: 1,
+                                    });
+                                } else {
+                                    const existingTest = modifiedTests.find(
+                                        (t) => t.testName === qualifiedTestName
+                                    );
+                                    if (existingTest) {
+                                        existingTest.count =
+                                            existingTest.count + 1;
                                     }
-                                    break;
                                 }
-                                j--;
+                                break;
                             }
                         }
                     }
