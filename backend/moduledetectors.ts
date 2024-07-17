@@ -66,9 +66,9 @@ export async function runModuleDetectors(
         idFlakiesTimeoutMs
     );
     console.log(
-        " - finished iDFlakies (given " +
-            Math.round(idFlakiesTimeoutMs / 1000) +
-            "s)"
+        ` - finished iDFlakies, found ${
+            idFlakiesResults.length
+        } results. (given ${Math.round(idFlakiesTimeoutMs / 1000)}s)`
     );
 
     return { allTests, idFlakiesResults };
@@ -86,15 +86,30 @@ export async function detectIDFlakies(
     fullModulePath: string,
     timeoutMs: number
 ): Promise<iDFlakiesResult[]> {
-    const timeoutSecs = Math.round(timeoutMs / 1000);
-    // TODO: run once in ReverseC+M order first, then in RandomC+M order
-    // await exec(
-    //     `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=reverse-class-method -Ddt.detector.original_order.all_must_pass=false -Ddetector.timeout=${timeout}`
-    // );
+    const startTime = Date.now();
     await exec(
-        `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=random-class-method -Ddt.detector.original_order.all_must_pass=false -Ddetector.timeout=${timeoutSecs}`
+        `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=reverse-class-method -Ddt.detector.original_order.all_must_pass=false`
     );
+    const reverseCMResult = await readFlakyLists(fullModulePath);
 
+    const remainingSecs = (timeoutMs - (Date.now() - startTime)) / 1000;
+
+    await exec(
+        `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=random-class-method -Ddt.detector.original_order.all_must_pass=false -Ddetector.timeout=${remainingSecs}`
+    );
+    const randomCMResult = await readFlakyLists(fullModulePath);
+
+    const allResults = [...reverseCMResult, ...randomCMResult];
+
+    return allResults.filter(
+        (value, index) =>
+            allResults.findIndex((v) => v.test === value.test) === index
+    );
+}
+
+async function readFlakyLists(
+    fullModulePath: string
+): Promise<iDFlakiesResult[]> {
     const flakyLists = JSON.parse(
         await fs.readFile(
             fullModulePath +
