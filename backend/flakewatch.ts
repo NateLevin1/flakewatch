@@ -385,7 +385,7 @@ async function downloadCILogs(
                 let failures;
                 try {
                     failures = (
-                        await exec(`zipgrep -C 3 'FAILURE!' ${filePath}`)
+                        await exec(`zipgrep -C3 'FAILURE!' ${filePath}`)
                     ).stdout;
                 } catch (e) {
                     // no failures, woohoo!
