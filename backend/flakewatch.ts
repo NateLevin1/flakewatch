@@ -350,7 +350,9 @@ async function downloadCILogs(
         recursive: true,
     });
 
+    console.log("Downloading CI logs for " + project.name);
     for (const commit of log.all) {
+        console.log(" - checking CI logs for commit " + commit.hash);
         try {
             const workflowRuns = (
                 await octokit.rest.actions.listWorkflowRunsForRepo({
@@ -359,6 +361,8 @@ async function downloadCILogs(
                     head_sha: commit.hash,
                 })
             ).data.workflow_runs;
+            console.log(" - found " + workflowRuns.length + " workflow runs");
+
             for (const run of workflowRuns) {
                 const runLogs =
                     await octokit.rest.actions.downloadWorkflowRunLogs({
@@ -375,6 +379,7 @@ async function downloadCILogs(
                     filePath,
                     Buffer.from(runLogs.data as ArrayBuffer)
                 );
+                console.log(` --- downloaded CI logs for run ${run.id}`);
 
                 // extract flaky tests from the logs
                 let failures;
@@ -384,8 +389,10 @@ async function downloadCILogs(
                     ).stdout;
                 } catch (e) {
                     // no failures, woohoo!
+                    console.log(" --- no CI failures found in " + filePath);
                     continue;
                 }
+                console.log(" --- found CI failures in " + filePath);
 
                 const flakiesA = Array.from(failures.matchAll(failureRegexA));
                 const flakiesB = Array.from(failures.matchAll(failureRegexB));
