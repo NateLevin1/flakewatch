@@ -57,7 +57,7 @@ export async function runModuleDetectors(
         );
     }
     const allTests = (await Promise.all(allTestsPromises)).flat();
-    console.log(" - found " + allTests.length + " tests in " + module);
+    console.log(" - found " + allTests.length + ' tests in "' + module + '"');
 
     const idFlakiesTimeoutMs =
         minsAllowed * 60 * 1000 - (Date.now() - startTime); // remaining time
@@ -86,12 +86,13 @@ export async function detectIDFlakies(
     fullModulePath: string,
     timeoutMs: number
 ): Promise<iDFlakiesResult[]> {
+    const timeoutSecs = Math.round(timeoutMs / 1000);
     // TODO: run once in ReverseC+M order first, then in RandomC+M order
     // await exec(
     //     `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=reverse-class-method -Ddt.detector.original_order.all_must_pass=false -Ddetector.timeout=${timeout}`
     // );
     await exec(
-        `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=random-class-method -Ddt.detector.original_order.all_must_pass=false -Ddetector.timeout=${timeoutMs}`
+        `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=random-class-method -Ddt.detector.original_order.all_must_pass=false -Ddetector.timeout=${timeoutSecs}`
     );
 
     const flakyLists = JSON.parse(
