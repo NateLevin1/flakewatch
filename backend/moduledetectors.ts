@@ -91,6 +91,7 @@ export async function detectIDFlakies(
         `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=reverse-class-method -Ddt.detector.original_order.all_must_pass=false`
     );
     const reverseCMResult = await readFlakyLists(fullModulePath);
+    console.log(" - finished iDFlakies Reverse C+M");
 
     const remainingSecs = (timeoutMs - (Date.now() - startTime)) / 1000;
 

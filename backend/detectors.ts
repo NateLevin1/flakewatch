@@ -136,7 +136,7 @@ export async function detectNonDex(
         );
     } catch (e) {
         // this is expected and is actually what we want
-        const error = e as { stdout: string; stderr: string };
+        const error = e as { stdout: string; stderr: string; code: number };
 
         const isNonDexError =
             error.stdout.includes(
@@ -148,7 +148,8 @@ export async function detectNonDex(
 
         if (isNonDexError) {
             report("NonDex", error.stdout);
-        } else {
+        } else if (error.code !== 124) {
+            // 124 means time ran out, which is fine
             throw e;
         }
     }
