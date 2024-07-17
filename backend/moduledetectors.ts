@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import type { ProjectInfo } from "./shared.js";
-import { exec } from "./detectors.js";
+import { exec, MIN_DETECTOR_MS } from "./detectors.js";
 
 export type ModuleCommitInfo = {
     allTests: string[];
@@ -59,8 +59,10 @@ export async function runModuleDetectors(
     const allTests = (await Promise.all(allTestsPromises)).flat();
     console.log(" - found " + allTests.length + ' tests in "' + module + '"');
 
-    const idFlakiesTimeoutMs =
-        minsAllowed * 60 * 1000 - (Date.now() - startTime); // remaining time
+    const idFlakiesTimeoutMs = Math.max(
+        minsAllowed * 60 * 1000 - (Date.now() - startTime),
+        MIN_DETECTOR_MS
+    ); // remaining time
     const idFlakiesResults = await detectIDFlakies(
         fullModulePath,
         idFlakiesTimeoutMs
@@ -93,7 +95,10 @@ export async function detectIDFlakies(
     const reverseCMResult = await readFlakyLists(fullModulePath);
     console.log(" - finished iDFlakies Reverse C+M");
 
-    const remainingSecs = (timeoutMs - (Date.now() - startTime)) / 1000;
+    const remainingSecs = Math.max(
+        (timeoutMs - (Date.now() - startTime)) / 1000,
+        MIN_DETECTOR_MS / 1000
+    );
 
     await exec(
         `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=random-class-method -Ddt.detector.original_order.all_must_pass=false -Ddetector.timeout=${remainingSecs}`

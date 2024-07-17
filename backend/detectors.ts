@@ -29,6 +29,8 @@ const run = async <T>(fn: () => Promise<T>) => {
     }
 };
 
+export const MIN_DETECTOR_MS = 10_000;
+
 type ReportFn = (detection: DetectionCause, logs?: string) => void;
 
 // based on page 12 of Lam et al https://cs.gmu.edu/~winglam/publications/2020/LamETAL20OOPSLA.pdf
@@ -83,8 +85,10 @@ export async function runDetectors(
     );
     console.log(" --- Finished OBO.");
     if (!isFailing) {
-        const nonDexTimeoutMs =
-            minsAllowed * 60 * 1000 - (Date.now() - startTime); // remaining time
+        const nonDexTimeoutMs = Math.max(
+            minsAllowed * 60 * 1000 - (Date.now() - startTime),
+            MIN_DETECTOR_MS
+        ); // remaining time
         await run(
             async () =>
                 await detectNonDex(detectorInfo, nonDexTimeoutMs, report)
