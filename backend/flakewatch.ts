@@ -334,7 +334,10 @@ export async function findModifiedTests(log: LogResult<DefaultLogFields>) {
     return modifiedTests;
 }
 
-const failureRegex = /FAILURE!.+in (.+)\n.*?Error(?::|])\s*(\w+)/gi;
+const failureRegexA =
+    /(?<className>[A-Za-z0-9_.]+)\.(?<testName>[A-Za-z0-9_]+)\s*-.+ <<< ERROR!/gi;
+const failureRegexB =
+    /(?<testName>[A-Za-z0-9_]+)\((?<className>[^\)]+)\).+<<< FAILURE!/gi;
 async function downloadCILogs(
     project: ProjectInfo,
     log: LogResult<DefaultLogFields>
@@ -376,23 +379,54 @@ async function downloadCILogs(
                 // extract flaky tests from the logs
                 let failures;
                 try {
-                    failures = (await exec(`zipgrep 'FAILURE!' ${filePath}`))
-                        .stdout;
+                    failures = (
+                        await exec(`zipgrep -C 3 'FAILURE!' ${filePath}`)
+                    ).stdout;
                 } catch (e) {
                     // no failures, woohoo!
                     continue;
                 }
 
-                const flakies = failures.matchAll(failureRegex);
+                const flakiesA = Array.from(failures.matchAll(failureRegexA));
+                const flakiesB = Array.from(failures.matchAll(failureRegexB));
+                const flakies = flakiesA.concat(flakiesB);
                 for (const flaky of flakies) {
-                    const qualifiedTestName = flaky[1] + "#" + flaky[2];
+                    const qualifiedClassName = flaky.groups!.className!;
+                    const testName = flaky.groups!.testName!;
+                    const qualifiedTestName =
+                        qualifiedClassName + "#" + testName;
                     if (result.find((r) => r.testName === qualifiedTestName))
                         continue; // duplicate
+
+                    // find the .java file by class name
+                    let module = "UNKNOWN!";
+                    const className = qualifiedClassName.split(".").at(-1);
+                    try {
+                        const javaFile = (
+                            await exec(
+                                `cd /home/flakewatch/clone/${project.name} && find . -name '${className}.java'`
+                            )
+                        ).stdout.trim();
+                        if (javaFile.split("\n").length > 1) {
+                            console.warn(
+                                `Multiple .java files found for ${qualifiedClassName}. Using the first one.`
+                            );
+                        }
+                        const srcTestIndex = javaFile.indexOf("src/test/java");
+                        if (srcTestIndex !== -1) {
+                            module = javaFile.slice(2, srcTestIndex - 1);
+                        }
+                    } catch (e) {
+                        console.error(
+                            `Failed to find .java file for ${qualifiedClassName}. Searched for ${className}.java`
+                        );
+                    }
 
                     console.log(`[!] ${qualifiedTestName} failed in CI`);
                     result.push({
                         testName: qualifiedTestName,
                         sha: commit.hash,
+                        module,
                     });
                 }
             }

@@ -7,7 +7,7 @@ export type FlakewatchResults = {
         module: string;
         sha: string;
     }[];
-    ciDetections: { testName: string; sha: string }[];
+    ciDetections: { testName: string; sha: string; module: string }[];
 };
 export type DetectionCause =
     | "NonDex"

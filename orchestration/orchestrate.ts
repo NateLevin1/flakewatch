@@ -192,7 +192,7 @@ async function readFlakewatchResultsToDB(project: Project) {
         await exec(`docker rm ${containerName}`);
     }
 
-    for (const { testName, sha } of results.ciDetections) {
+    for (const { testName, sha, module } of results.ciDetections) {
         console.log(project.name + ": " + testName + " was flaky in CI.");
         const existing = getFlaky(testName);
         const insert = () => {
@@ -200,7 +200,7 @@ async function readFlakewatchResultsToDB(project: Project) {
                 projectURL: project.gitURL,
                 firstDetectCommit: sha,
                 firstDetectTime,
-                modulePath: "UNKNOWN!", // TODO: how can we know this information?
+                modulePath: module,
                 qualifiedTestName: testName,
                 category: "CI",
             });
