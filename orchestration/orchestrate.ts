@@ -35,15 +35,18 @@ async function orchestrateProject(project: Project) {
 
     const projectImageName = `flakewatch-${project.name}:latest`;
 
-    let containerExists = false;
+    let imageExists = false;
     try {
-        containerExists =
-            (
-                await exec(`docker images | grep ${projectImageName}`)
-            ).stdout.split("\n").length > 0;
+        imageExists =
+            (await exec(`docker images -q ${projectImageName}`)).stdout.split(
+                "\n"
+            ).length > 0;
     } catch (e) {}
 
-    const imageName = containerExists ? projectImageName : "flakewatch:base";
+    if (!imageExists)
+        console.log(project.name + ": creating initial project image");
+
+    const imageName = imageExists ? projectImageName : "flakewatch:base";
     const updateContainerName = `flakewatch-update-${project.name}`;
     const updateCmd = `/bin/bash -c "cd /home/flakewatch/flakewatch/backend && git pull && npm install && npm run build && npm run update -- '${passedInInfo}'"`;
     try {
