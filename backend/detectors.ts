@@ -48,7 +48,7 @@ export async function runDetectors({
     commitSha: string;
     minsAllowed: number;
 }): Promise<{ category: FlakyCategory | undefined }> {
-    const fullModulePath = projectPath + "/" + module;
+    const fullModulePath = module ? projectPath + "/" + module : projectPath;
     const pl = module ? `-pl ${module}` : "";
 
     const detectorInfo = {
