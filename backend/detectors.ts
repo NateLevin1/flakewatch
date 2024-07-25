@@ -143,6 +143,8 @@ export async function detectNonDex(
         });
         for (const file of files) {
             if (file.isDirectory()) {
+                if (file.name.startsWith("clean_")) continue;
+
                 const [failuresFile, configFile] = await Promise.all([
                     fs.readFile(
                         `${fullModulePath}/.nondex/${file.name}/failures`,
