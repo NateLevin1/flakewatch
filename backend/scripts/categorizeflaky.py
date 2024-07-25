@@ -71,7 +71,11 @@ class TestInfo:
         if self._passes_anywhere():
             for seed in self.fails_nondex:
                 if not seed in self.passes_nondex:
-                    return "ID"
+                    # ID&NOD: ID and failed when run w/o prefix
+                    if self.fails_wo_prefix:
+                        return "ID&NOD"
+                    else:
+                        return "ID"
         
         # Check for OD: always failed in some order, always passed in a different order
         # OD-Vic: never fails with empty prefix
