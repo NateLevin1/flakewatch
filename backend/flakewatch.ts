@@ -162,15 +162,6 @@ export async function flakewatch(project: ProjectInfo) {
                     await git.checkout(project.branch);
                 }
                 console.log("Finished running detectors.");
-
-                if (project.debug?.keepContainerRunning) {
-                    console.log(
-                        "[!] [!] [!] DEBUG ENABLED: KEEPING CONTAINER ALIVE. [!] [!] [!]"
-                    );
-                    setTimeout(() => {
-                        console.log("Killing container after time out.");
-                    }, 1000 * 60 * 60 * 24);
-                }
             }
         }
     } finally {
@@ -178,6 +169,19 @@ export async function flakewatch(project: ProjectInfo) {
             "/home/flakewatch/flakewatch-results.json",
             JSON.stringify(result)
         );
+
+        if (project.debug?.keepContainerRunning) {
+            console.log(
+                "[!] [!] [!] DEBUG ENABLED: KEEPING CONTAINER ALIVE. [!] [!] [!]"
+            );
+            setInterval(() => {
+                console.log("container heartbeat");
+            }, 1000 * 60 * 60);
+            setTimeout(() => {
+                console.log("Killing container after time out.");
+                process.exit(1);
+            }, 1000 * 60 * 60 * 24);
+        }
     }
 }
 
