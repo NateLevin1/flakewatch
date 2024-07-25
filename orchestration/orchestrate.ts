@@ -45,9 +45,9 @@ async function orchestrateProject(project: Project) {
     let imageExists = false;
     try {
         imageExists =
-            (await exec(`docker images -q ${projectImageName}`)).stdout.split(
-                "\n"
-            ).length > 0;
+            (
+                await exec(`docker images -q ${projectImageName}`)
+            ).stdout.trimEnd().length > 0;
     } catch (e) {}
 
     if (!imageExists)
