@@ -173,7 +173,8 @@ export async function detectNonDex(
                 });
 
                 if (!passed && !rerunSeed) {
-                    detectNonDex(detectorInfo, detectorRuns, nondexSeed);
+                    await exec(`rm -rf ${fullModulePath}/.nondex`);
+                    await detectNonDex(detectorInfo, detectorRuns, nondexSeed);
                 }
             }
         }
