@@ -145,16 +145,22 @@ export async function detectNonDex(
             if (file.isDirectory()) {
                 if (file.name.startsWith("clean_")) continue;
 
-                const [failuresFile, configFile] = await Promise.all([
-                    fs.readFile(
-                        `${fullModulePath}/.nondex/${file.name}/failures`,
-                        "utf-8"
-                    ),
-                    fs.readFile(
-                        `${fullModulePath}/.nondex/${file.name}/config`,
-                        "utf-8"
-                    ),
-                ]);
+                let infoFiles;
+                try {
+                    infoFiles = await Promise.all([
+                        fs.readFile(
+                            `${fullModulePath}/.nondex/${file.name}/failures`,
+                            "utf-8"
+                        ),
+                        fs.readFile(
+                            `${fullModulePath}/.nondex/${file.name}/config`,
+                            "utf-8"
+                        ),
+                    ]);
+                } catch (e) {
+                    continue; // expected if the test passed
+                }
+                const [failuresFile, configFile] = infoFiles;
 
                 const seedIndex = configFile.indexOf("nondexSeed=") + 11;
                 const nondexSeed = configFile.slice(
