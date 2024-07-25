@@ -33,3 +33,9 @@ To add a new project, create a new JSON file in the `orchestration/projects` dir
 ```
 
 To configure other aspects of the server, edit the `orchestration/projects/_config.json` file.
+
+## Running the Categorization Script
+
+```bash
+python3 backend/scripts/categorizeflaky.py path/to/csv
+```

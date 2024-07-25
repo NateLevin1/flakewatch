@@ -21,6 +21,13 @@ export const exec = util.promisify(execC);
 
 export async function orchestrate() {
     reloadProjects();
+    const currentVersion = (await exec("git rev-parse HEAD")).stdout.trim();
+    console.log(
+        "Orchestrating " +
+            projects.length +
+            " projects, version=" +
+            currentVersion
+    );
     for (const project of projects) {
         orchestrateProject(project);
     }
@@ -125,20 +132,19 @@ async function readFlakewatchResultsToDB(project: Project) {
 
     let flakyFirstDetected = false;
 
-    for (const { testName, detections, sha, module } of results.detections) {
+    for (const { testName, category, sha, module } of results.detections) {
         const existing = getFlaky(testName);
 
-        if (detections.length > 0) {
+        if (category) {
             // add to DB
-            const newCategory = detections.join("&");
             const insert = () => {
                 flakyFirstDetected = true;
                 console.log(
                     project.name +
                         ": " +
                         testName +
-                        " is newly flaky. Reason(s): " +
-                        detections.join(", ")
+                        " is newly flaky: " +
+                        category
                 );
                 insertFlaky({
                     projectURL: project.gitURL,
@@ -146,11 +152,11 @@ async function readFlakewatchResultsToDB(project: Project) {
                     firstDetectTime,
                     modulePath: module,
                     qualifiedTestName: testName,
-                    category: newCategory,
+                    category,
                 });
             };
             if (existing) {
-                if (existing.category !== newCategory) {
+                if (existing.category !== category) {
                     if (existing.fixCommit) {
                         insert();
                     } else {
@@ -159,7 +165,7 @@ async function readFlakewatchResultsToDB(project: Project) {
                                 ": " +
                                 testName +
                                 " still flakes: " +
-                                newCategory +
+                                category +
                                 " (was " +
                                 existing.category +
                                 ")"
@@ -167,7 +173,7 @@ async function readFlakewatchResultsToDB(project: Project) {
                         updateFlakyCategory(
                             existing.ulid,
                             existing.category ?? "",
-                            newCategory
+                            category
                         );
                     }
                 }

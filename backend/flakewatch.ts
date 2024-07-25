@@ -94,12 +94,12 @@ export async function flakewatch(project: ProjectInfo) {
                     await git.reset(["--hard"]);
                     await git.checkout(commit);
                     console.log(` - getting mod "${module}" @ "${commit}"`);
-                    const moduleCommitInfo = await runModuleDetectors(
+                    const moduleCommitInfo = await runModuleDetectors({
                         projectPath,
                         module,
                         project,
-                        minsAllowedPerModuleCommit
-                    );
+                        minsAllowed: minsAllowedPerModuleCommit,
+                    });
                     moduleCommitInfos.push({
                         ...moduleCommitInfo,
                         module,
@@ -136,18 +136,18 @@ export async function flakewatch(project: ProjectInfo) {
                     await git.reset(["--hard"]);
                     await git.checkout(commit);
                     try {
-                        const detections = await runDetectors(
-                            testName,
+                        const { category } = await runDetectors({
+                            qualifiedTestName: testName,
                             projectPath,
                             module,
                             project,
                             moduleCommitInfo,
-                            commit,
-                            minsAllowedPerTest
-                        );
+                            commitSha: commit,
+                            minsAllowed: minsAllowedPerTest,
+                        });
                         result.detections.push({
                             testName,
-                            detections,
+                            category,
                             module,
                             sha: commit,
                         });
@@ -162,6 +162,15 @@ export async function flakewatch(project: ProjectInfo) {
                     await git.checkout(project.branch);
                 }
                 console.log("Finished running detectors.");
+
+                if (project.debug?.keepContainerRunning) {
+                    console.log(
+                        "[!] [!] [!] DEBUG ENABLED: KEEPING CONTAINER ALIVE. [!] [!] [!]"
+                    );
+                    setTimeout(() => {
+                        console.log("Killing container after time out.");
+                    }, 1000 * 60 * 60 * 24);
+                }
             }
         }
     } finally {

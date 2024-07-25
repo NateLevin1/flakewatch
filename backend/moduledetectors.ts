@@ -1,26 +1,35 @@
 import fs from "fs/promises";
 import type { ProjectInfo } from "./shared.js";
-import { exec, MIN_DETECTOR_MS } from "./detectors.js";
+import { exec } from "./detectors.js";
+import {
+    createTimeoutFunction,
+    md5,
+    run,
+    type DetectorRun,
+} from "./runutils.js";
+
+type ModuleDetectorRuns = Map<string, DetectorRun[]>;
 
 export type ModuleCommitInfo = {
     allTests: string[];
-    idFlakiesResults: iDFlakiesResult[];
+    detectorRuns: ModuleDetectorRuns;
 };
 
-type iDFlakiesResult = {
-    test: string;
-    type: "OD" | "NOD";
-    passingOrder: string[];
-    failingOrder: string[];
-};
+const NUM_MODULE_DETECTORS = 1;
+const MIN_DETECTOR_SEC = 60;
 
 // detectors that work per-module, not per-test
-export async function runModuleDetectors(
-    projectPath: string,
-    module: string,
-    project: ProjectInfo,
-    minsAllowed: number
-): Promise<ModuleCommitInfo> {
+export async function runModuleDetectors({
+    projectPath,
+    module,
+    project,
+    minsAllowed,
+}: {
+    projectPath: string;
+    module: string;
+    project: ProjectInfo;
+    minsAllowed: number;
+}): Promise<ModuleCommitInfo> {
     const startTime = Date.now();
 
     const fullModulePath = projectPath + "/" + module;
@@ -59,79 +68,94 @@ export async function runModuleDetectors(
     const allTests = (await Promise.all(allTestsPromises)).flat();
     console.log(" - found " + allTests.length + ' tests in "' + module + '"');
 
-    const idFlakiesTimeoutMs = Math.max(
-        minsAllowed * 60 * 1000 - (Date.now() - startTime),
-        MIN_DETECTOR_MS
-    ); // remaining time
-    const idFlakiesResults = await detectIDFlakies(
-        fullModulePath,
-        idFlakiesTimeoutMs
-    );
-    console.log(
-        ` - finished iDFlakies, found ${
-            idFlakiesResults.length
-        } results. (given ${Math.round(idFlakiesTimeoutMs / 1000)}s)`
+    const detectorMinsAllowed =
+        minsAllowed * 60 * 1000 - (Date.now() - startTime);
+    const getTimeout = createTimeoutFunction(
+        detectorMinsAllowed,
+        NUM_MODULE_DETECTORS,
+        MIN_DETECTOR_SEC
     );
 
-    return { allTests, idFlakiesResults };
+    const detectorRuns = new Map() as ModuleDetectorRuns;
+
+    await run(() =>
+        detectIDFlakies(
+            {
+                fullModulePath,
+                timeoutSecs: getTimeout(0),
+                minDetectorSecs: MIN_DETECTOR_SEC,
+            },
+            detectorRuns
+        )
+    );
+    console.log(" - finished iDFlakies");
+
+    return { allTests, detectorRuns };
 }
 
-type FlakyListsType = {
-    dts: {
-        name: string;
-        type: "OD" | "NOD";
-        intended: { order: string[] };
-        revealed: { order: string[] };
-    }[];
-};
 export async function detectIDFlakies(
-    fullModulePath: string,
-    timeoutMs: number
-): Promise<iDFlakiesResult[]> {
+    {
+        fullModulePath,
+        timeoutSecs,
+        minDetectorSecs,
+    }: { fullModulePath: string; timeoutSecs: number; minDetectorSecs: number },
+    detectorRuns: ModuleDetectorRuns
+): Promise<void> {
     const startTime = Date.now();
+
     await exec(
         `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=reverse-class-method -Ddt.detector.original_order.all_must_pass=false`
     );
-    const reverseCMResult = await readFlakyLists(fullModulePath);
     console.log(" - finished iDFlakies Reverse C+M");
 
     const remainingSecs = Math.max(
-        (timeoutMs - (Date.now() - startTime)) / 1000,
-        MIN_DETECTOR_MS / 1000
+        timeoutSecs - (Date.now() - startTime) / 1000,
+        minDetectorSecs
     );
 
     await exec(
         `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=random-class-method -Ddt.detector.original_order.all_must_pass=false -Ddetector.timeout=${remainingSecs}`
     );
-    const randomCMResult = await readFlakyLists(fullModulePath);
 
-    const allResults = [...reverseCMResult, ...randomCMResult];
-
-    return allResults.filter(
-        (value, index) =>
-            allResults.findIndex((v) => v.test === value.test) === index
+    const files = await fs.readdir(
+        fullModulePath + "/.dtfixingtools/test-runs/results/"
     );
-}
-
-async function readFlakyLists(
-    fullModulePath: string
-): Promise<iDFlakiesResult[]> {
-    const flakyLists = JSON.parse(
-        await fs.readFile(
-            fullModulePath +
-                "/.dtfixingtools/detection-results/flaky-lists.json",
+    for (const file of files) {
+        const content = await fs.readFile(
+            fullModulePath + "/.dtfixingtools/test-runs/results/" + file,
             "utf-8"
-        )
-    ) as FlakyListsType;
-
-    return flakyLists.dts.map((dt) => {
-        return {
-            test: convertIdFlakiesTestName(dt.name),
-            type: dt.type,
-            passingOrder: dt.intended.order,
-            failingOrder: dt.revealed.order,
+        );
+        const ordering = JSON.parse(content) as {
+            id: string;
+            testOrder: string[];
+            results: {
+                [key: string]: {
+                    result: "PASS" | "FAILURE";
+                };
+            };
         };
-    });
+
+        const prefixStack: string[] = [];
+        for (const idflakiesTest of ordering.testOrder) {
+            const passed = ordering.results[idflakiesTest]?.result === "PASS";
+            const test = convertIdFlakiesTestName(idflakiesTest);
+
+            let existingRuns = detectorRuns.get(test);
+            if (!existingRuns) {
+                existingRuns = [];
+                detectorRuns.set(test, existingRuns);
+            }
+            existingRuns.push({
+                test,
+                prefixMd5: md5(prefixStack.join("")),
+                tool: "iDFlakies",
+                passed,
+                log: "",
+            });
+
+            prefixStack.push(test);
+        }
+    }
 }
 
 function convertIdFlakiesTestName(testName: string) {

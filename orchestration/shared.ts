@@ -3,19 +3,13 @@
 export type FlakewatchResults = {
     detections: {
         testName: string;
-        detections: DetectionCause[];
+        category?: FlakyCategory;
         module: string;
         sha: string;
     }[];
     ciDetections: { testName: string; sha: string; module: string }[];
 };
-export type DetectionCause =
-    | "NonDex"
-    | "Isolation"
-    | "OBO"
-    | "OBO-Brit"
-    | "iDFl-OD"
-    | "iDFl-NOD";
+export type FlakyCategory = "OD-Vic" | "OD-Brit" | "ID" | "NOD";
 export type UpdateResults = {
     compileSuccess?: boolean;
     shouldRunFlakewatch?: boolean;
@@ -32,6 +26,7 @@ export type Project = {
         minsAllowedPerModuleCommit?: number;
         minsAllowedPerTest?: number;
         leaveContainers?: boolean;
+        keepContainerRunning?: boolean;
     };
 };
 export type ProjectInfo = Project & {

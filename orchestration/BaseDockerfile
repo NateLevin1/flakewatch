@@ -61,3 +61,8 @@ RUN git clone 'https://github.com/NateLevin1/flakewatch.git' && \
   cd flakewatch/backend && npm install
 
 RUN mkdir -p /home/flakewatch/clone /home/flakewatch/ci-logs /home/flakewatch/failure-logs
+
+# TODO: move this up
+USER root
+RUN apt-get install -y python3
+USER flakewatch
