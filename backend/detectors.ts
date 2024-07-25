@@ -156,7 +156,7 @@ export async function detectNonDex(
                     ),
                 ]);
 
-                const seedIndex = configFile.indexOf("nondexSeed=" + 11);
+                const seedIndex = configFile.indexOf("nondexSeed=") + 11;
                 const nondexSeed = configFile.slice(
                     seedIndex,
                     configFile.indexOf("\n", seedIndex)
