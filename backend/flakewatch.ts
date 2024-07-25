@@ -170,7 +170,7 @@ export async function flakewatch(project: ProjectInfo) {
             JSON.stringify(result)
         );
 
-        if (project.debug?.keepContainerRunning) {
+        if (project.debug?.keepContainerAlive) {
             console.log(
                 "[!] [!] [!] DEBUG ENABLED: KEEPING CONTAINER ALIVE. [!] [!] [!]"
             );

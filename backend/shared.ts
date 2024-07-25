@@ -26,7 +26,7 @@ export type Project = {
         minsAllowedPerModuleCommit?: number;
         minsAllowedPerTest?: number;
         leaveContainers?: boolean;
-        keepContainerRunning?: boolean;
+        keepContainerAlive?: boolean;
     };
 };
 export type ProjectInfo = Project & {
