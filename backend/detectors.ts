@@ -273,6 +273,9 @@ export async function detectOneByOne(
                       failure: string;
                       rerunFailure: { stackTrace: string }[] | undefined;
                   }
+                | {
+                      flakyFailure: { stackTrace: string };
+                  }
                 | "") || undefined;
 
         if (!result) {
@@ -286,15 +289,19 @@ export async function detectOneByOne(
             continue;
         }
 
+        const failure =
+            "flakyFailure" in result
+                ? result.flakyFailure.stackTrace
+                : result.failure;
         detectorRuns.push({
             passed: false,
             prefixMd5,
             test: qualifiedTestName,
             tool: "OBO",
-            log: test + " run first. failure: " + result.failure,
+            log: test + " run first. failure: " + failure,
         });
 
-        if (result.rerunFailure) {
+        if ("rerunFailure" in result && result.rerunFailure) {
             for (const { stackTrace } of result.rerunFailure) {
                 detectorRuns.push({
                     passed: false,
