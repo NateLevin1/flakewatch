@@ -69,7 +69,7 @@ export async function runModuleDetectors({
     console.log(" - found " + allTests.length + ' tests in "' + module + '"');
 
     const detectorMinsAllowed =
-        minsAllowed * 60 * 1000 - (Date.now() - startTime);
+        (minsAllowed * 60 * 1000 - (Date.now() - startTime)) / 1000 / 60;
     const getTimeout = createTimeoutFunction(
         detectorMinsAllowed,
         NUM_MODULE_DETECTORS,
