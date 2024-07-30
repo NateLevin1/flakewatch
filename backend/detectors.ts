@@ -116,10 +116,9 @@ export async function detectNonDex(
         : "-DnondexRuns=10";
     try {
         try {
-            const output = await exec(
+            await exec(
                 `cd ${fullModulePath} && timeout ${timeoutSecs} mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -DnondexMode=ONE ${nondexOpts} -B`
             );
-            console.log("[!] DEBUG:\n" + output.stdout);
         } catch (e) {
             // this will happen if A) something went wrong or B) nondex detected a failure
             // let's check if it is a NonDex error or if the tool failed
@@ -165,10 +164,6 @@ export async function detectNonDex(
                     seedIndex,
                     configFile.indexOf("\n", seedIndex)
                 );
-
-                console.log("[!] DEBUG: NonDex seed: " + nondexSeed);
-                console.log("[!] failuresFile=" + failuresFile);
-                await exec(`cp -r ${fullModulePath}/.nondex/${file.name} /tmp`);
 
                 const passed = failuresFile.length == 0;
 
