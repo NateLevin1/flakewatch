@@ -142,6 +142,7 @@ export async function detectNonDex(
             withFileTypes: true,
         });
         const reruns: string[] = [];
+
         for (const file of files) {
             if (file.isDirectory()) {
                 if (file.name.startsWith("clean_")) continue;
@@ -159,7 +160,7 @@ export async function detectNonDex(
                         ),
                     ]);
                 } catch (e) {
-                    continue; // expected if the test passed
+                    continue; // possible, if interrupted/similar
                 }
                 const [failuresFile, configFile] = infoFiles;
 
@@ -183,11 +184,11 @@ export async function detectNonDex(
                     reruns.push(nondexSeed);
                 }
             }
+        }
 
-            for (const seed of reruns) {
-                await exec(`rm -rf ${fullModulePath}/.nondex`);
-                await detectNonDex(detectorInfo, detectorRuns, seed);
-            }
+        await exec(`rm -rf ${fullModulePath}/.nondex`);
+        for (const seed of reruns) {
+            await detectNonDex(detectorInfo, detectorRuns, seed);
         }
     } finally {
         await exec(`rm -rf ${fullModulePath}/.nondex`);
