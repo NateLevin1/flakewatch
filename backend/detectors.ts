@@ -159,7 +159,7 @@ export async function detectNonDex(
                     configFile.indexOf("\n", seedIndex)
                 );
 
-                const passed = failuresFile.length > 0;
+                const passed = failuresFile.length == 0;
 
                 detectorRuns.push({
                     passed,
