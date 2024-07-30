@@ -131,6 +131,7 @@ export async function detectNonDex(
                 console.log(
                     " --- NonDex ran out of time (given " + timeoutSecs + "s)"
                 );
+                console.log(error.stdout);
             } else {
                 throw e;
             }
