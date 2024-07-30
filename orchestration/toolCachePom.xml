@@ -1,0 +1,26 @@
+<project>
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>flakewatch.cache</groupId>
+    <artifactId>flakewatch-cache</artifactId>
+    <version>1</version>
+    <repositories>
+        <repository>
+            <id>maven-central</id>
+            <url>https://repo.maven.apache.org/maven2/</url>
+        </repository>
+    </repositories>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>edu.illinois.cs</groupId>
+                <artifactId>idflakies-maven-plugin</artifactId>
+                <version>2.0.0</version>
+            </plugin>
+            <plugin>
+                <groupId>edu.illinois</groupId>
+                <artifactId>nondex-maven-plugin</artifactId>
+                <version>2.1.7</version>
+            </plugin>
+        </plugins>
+    </build>
+</project>
