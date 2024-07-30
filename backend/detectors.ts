@@ -117,23 +117,20 @@ export async function detectNonDex(
     try {
         try {
             const output = await exec(
-                `cd ${fullModulePath} && timeout ${timeoutSecs} mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -DnondexMode=ONE ${nondexOpts} -Dmaven.test.failure.ignore=true -B`
+                `cd ${fullModulePath} && timeout ${timeoutSecs} mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -DnondexMode=ONE ${nondexOpts} -B`
             );
-            console.log(
-                "[!] DEBUG:\n" +
-                    `cd ${fullModulePath} && timeout ${timeoutSecs} mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -DnondexMode=ONE ${nondexOpts} -Dmaven.test.failure.ignore=true -B\n` +
-                    output.stdout
-            );
+            console.log("[!] DEBUG:\n" + output.stdout);
         } catch (e) {
+            // this will happen if A) something went wrong or B) nondex detected a failure
+            // let's check if it is a NonDex error or if the tool failed
             const error = e as { stdout: string; stderr: string; code: number };
             // 124 means time ran out
             if (error.code === 124) {
                 console.log(
                     " --- NonDex ran out of time (given " + timeoutSecs + "s)"
                 );
-                console.log(error.stdout);
             } else {
-                throw e;
+                if (!error.stdout.includes("There are test failures.")) throw e;
             }
         }
 
