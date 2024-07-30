@@ -116,13 +116,22 @@ export async function detectNonDex(
         : "-DnondexRuns=10";
     try {
         try {
-            await exec(
+            const output = await exec(
                 `cd ${fullModulePath} && timeout ${timeoutSecs} mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -DnondexMode=ONE ${nondexOpts} -Dmaven.test.failure.ignore=true -B`
+            );
+            console.log(
+                "[!] DEBUG:\n" +
+                    `cd ${fullModulePath} && timeout ${timeoutSecs} mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -DnondexMode=ONE ${nondexOpts} -Dmaven.test.failure.ignore=true -B\n` +
+                    output.stdout
             );
         } catch (e) {
             const error = e as { stdout: string; stderr: string; code: number };
             // 124 means time ran out
-            if (error.code !== 124) {
+            if (error.code === 124) {
+                console.log(
+                    " --- NonDex ran out of time (given " + timeoutSecs + "s)"
+                );
+            } else {
                 throw e;
             }
         }
