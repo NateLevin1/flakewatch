@@ -65,4 +65,5 @@ RUN mkdir -p /home/flakewatch/clone /home/flakewatch/ci-logs /home/flakewatch/fa
 # TODO: move this up
 USER root
 RUN apt-get install -y python3
+RUN mvn edu.illinois:nondex-maven-plugin:2.1.7:help
 USER flakewatch
