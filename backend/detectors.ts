@@ -169,6 +169,10 @@ export async function detectNonDex(
                     configFile.indexOf("\n", seedIndex)
                 );
 
+                console.log("[!] DEBUG: NonDex seed: " + nondexSeed);
+                console.log("[!] failuresFile=" + failuresFile);
+                await exec(`cp -r ${fullModulePath}/.nondex/${file.name} /tmp`);
+
                 const passed = failuresFile.length == 0;
 
                 detectorRuns.push({
