@@ -167,11 +167,25 @@ export async function detectNonDex(
 
                 const passed = failuresFile.length == 0;
 
+                let failure: string | undefined = undefined;
+                if (!passed) {
+                    const className = qualifiedTestName.split("#")[0];
+                    const xml = xmlParser.parse(
+                        await fs.readFile(
+                            `${fullModulePath}/.nondex/${file.name}/TEST-${className}.xml`,
+                            "utf-8"
+                        )
+                    );
+                    const fullFailure = xml.testsuite.testcase.failure;
+                    failure = fullFailure.slice(0, fullFailure.indexOf("\n"));
+                }
+
                 detectorRuns.push({
                     passed,
                     prefixMd5: "",
                     test: qualifiedTestName,
                     tool: "NonDex",
+                    failure,
                     log: nondexSeed,
                 });
 
@@ -222,7 +236,8 @@ export async function detectIsolation(
                 prefixMd5: "",
                 test: qualifiedTestName,
                 tool: "Isolation",
-                log: stackTrace,
+                failure: stackTrace.slice(0, stackTrace.indexOf("\n")),
+                log: undefined,
             });
         }
     }
@@ -232,7 +247,8 @@ export async function detectIsolation(
             prefixMd5: "",
             test: qualifiedTestName,
             tool: "Isolation",
-            log: "",
+            failure: undefined,
+            log: undefined,
         });
     }
 }
@@ -280,7 +296,8 @@ export async function detectOneByOne(
                 prefixMd5,
                 test: qualifiedTestName,
                 tool: "OBO",
-                log: test + " run first",
+                failure: undefined,
+                log: test,
             });
             continue;
         }
@@ -294,7 +311,8 @@ export async function detectOneByOne(
             prefixMd5,
             test: qualifiedTestName,
             tool: "OBO",
-            log: test + " run first. failure: " + failure,
+            failure,
+            log: test,
         });
 
         if ("rerunFailure" in result && result.rerunFailure) {
@@ -304,7 +322,8 @@ export async function detectOneByOne(
                     prefixMd5,
                     test: qualifiedTestName,
                     tool: "OBO",
-                    log: stackTrace,
+                    failure: stackTrace,
+                    log: test,
                 });
             }
         }

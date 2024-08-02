@@ -4,7 +4,9 @@ import csv
 def categorize_flaky(detector_runs):
     tests = {}
     for run in detector_runs:
-        [test, prefix_md5, tool, status, log] = run
+        [test, prefix_md5, tool, status, failure_md5, log] = run
+        if test == 'test':
+            continue # Skip header
 
         if not "#" in test or (status != "pass" and status != "fail"):
             print(f"Err: invalid line: {run}")

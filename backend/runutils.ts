@@ -5,7 +5,8 @@ export type DetectorRun = {
     prefixMd5: string;
     tool: string;
     passed: boolean;
-    log: string;
+    failure: string | undefined;
+    log: string | undefined;
 };
 
 export const run = async (fn: () => Promise<void>) => {

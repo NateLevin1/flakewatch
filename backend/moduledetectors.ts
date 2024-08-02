@@ -32,7 +32,7 @@ export async function runModuleDetectors({
 }): Promise<ModuleCommitInfo> {
     const startTime = Date.now();
 
-    const fullModulePath = projectPath + "/" + module;
+    const fullModulePath = module ? projectPath + "/" + module : projectPath;
     const testArgs = project.mvnTestArgs ?? "";
     const pl = module ? `-pl ${module}` : "";
 
@@ -117,7 +117,8 @@ export async function detectIDFlakies(
         `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=random-class-method -Ddt.detector.original_order.all_must_pass=false -Ddetector.timeout=${remainingSecs}`
     );
 
-    const resultsDir = fullModulePath + "/.dtfixingtools/test-runs/results/";
+    const testRunsDir = fullModulePath + "/.dtfixingtools/test-runs/";
+    const resultsDir = testRunsDir + "results/";
     const files = await fs.readdir(resultsDir);
     const filesWithCreationTime = await Promise.all(
         files.map(async (file) => ({
@@ -136,13 +137,20 @@ export async function detectIDFlakies(
             results: {
                 [key: string]: {
                     result: "PASS" | "FAILURE";
+                    stackTrace: {
+                        declaringClass: string;
+                        methodName: string;
+                        fileName: string;
+                        lineNumber: number;
+                    }[];
                 };
             };
         };
 
         const prefixStack: string[] = [];
         for (const idflakiesTest of ordering.testOrder) {
-            const passed = ordering.results[idflakiesTest]?.result === "PASS";
+            const result = ordering.results[idflakiesTest]!;
+            const passed = result.result === "PASS";
             const test = convertIdFlakiesTestName(idflakiesTest);
 
             let existingRuns = detectorRuns.get(test);
@@ -150,12 +158,35 @@ export async function detectIDFlakies(
                 existingRuns = [];
                 detectorRuns.set(test, existingRuns);
             }
+            let failure: string | undefined = undefined;
+            if (!passed) {
+                // we have to get the failure from the output file,
+                // because iDFlakies only gives us the stack trace for some reason
+                const output = await fs.readFile(
+                    testRunsDir + "output/" + file,
+                    "utf-8"
+                );
+                const originIndex = result.stackTrace.findIndex(
+                    (st) => !st.declaringClass.startsWith("org.junit")
+                );
+                const origin = result.stackTrace[originIndex]!;
+                const searchStr = origin.fileName + ":" + origin.lineNumber;
+                const filenameIndex = output.indexOf(searchStr);
+                // go back originIndex+1 lines to get the failure (+1 to get to the start of the line)
+                let index = filenameIndex;
+                for (let i = 0; i < originIndex + 2; i++) {
+                    index = output.lastIndexOf("\n", filenameIndex - 1);
+                }
+                const failureEndIndex = output.indexOf("\n", index + 1);
+                failure = output.slice(index + 1, failureEndIndex);
+            }
             existingRuns.push({
                 test,
                 prefixMd5: md5(prefixStack.join("")),
                 tool: "iDFlakies",
                 passed,
-                log: "",
+                failure,
+                log: undefined,
             });
 
             prefixStack.push(test);
