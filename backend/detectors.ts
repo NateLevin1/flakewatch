@@ -134,12 +134,22 @@ export async function detectNonDex(
             }
         }
 
-        const files = await fs.readdir(fullModulePath + "/.nondex", {
+        const nondexDir = fullModulePath + "/.nondex/";
+        const files = await fs.readdir(nondexDir, {
             withFileTypes: true,
         });
-        const reruns: string[] = [];
+        const filesWithCreationTime = await Promise.all(
+            files.map(async (file) => ({
+                file,
+                creationTime: (await fs.stat(nondexDir + file)).birthtimeMs,
+            }))
+        );
+        const orderedFiles = filesWithCreationTime
+            .sort((a, b) => a.creationTime - b.creationTime)
+            .map((f) => f.file);
 
-        for (const file of files) {
+        const reruns: string[] = [];
+        for (const file of orderedFiles) {
             if (file.isDirectory()) {
                 if (file.name.startsWith("clean_")) continue;
 
