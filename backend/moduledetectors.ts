@@ -117,14 +117,19 @@ export async function detectIDFlakies(
         `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=random-class-method -Ddt.detector.original_order.all_must_pass=false -Ddetector.timeout=${remainingSecs}`
     );
 
-    const files = await fs.readdir(
-        fullModulePath + "/.dtfixingtools/test-runs/results/"
+    const resultsDir = fullModulePath + "/.dtfixingtools/test-runs/results/";
+    const files = await fs.readdir(resultsDir);
+    const filesWithCreationTime = await Promise.all(
+        files.map(async (file) => ({
+            file,
+            creationTime: (await fs.stat(resultsDir + file)).birthtimeMs,
+        }))
     );
-    for (const file of files) {
-        const content = await fs.readFile(
-            fullModulePath + "/.dtfixingtools/test-runs/results/" + file,
-            "utf-8"
-        );
+    const orderedFiles = filesWithCreationTime
+        .sort((a, b) => a.creationTime - b.creationTime)
+        .map((f) => f.file);
+    for (const file of orderedFiles) {
+        const content = await fs.readFile(resultsDir + file, "utf-8");
         const ordering = JSON.parse(content) as {
             id: string;
             testOrder: string[];
