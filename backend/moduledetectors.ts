@@ -175,7 +175,7 @@ export async function detectIDFlakies(
                 // go back originIndex+1 lines to get the failure (+1 to get to the start of the line)
                 let index = filenameIndex;
                 for (let i = 0; i < originIndex + 2; i++) {
-                    index = output.lastIndexOf("\n", filenameIndex - 1);
+                    index = output.lastIndexOf("\n", index - 1);
                 }
                 const failureEndIndex = output.indexOf("\n", index + 1);
                 failure = output.slice(index + 1, failureEndIndex);
