@@ -12,6 +12,7 @@ import fs from "fs/promises";
 import { categorize } from "./categorize.js";
 import { XMLParser } from "fast-xml-parser";
 
+const xmlParser = new XMLParser();
 const NUM_DETECTORS = 3;
 const MIN_DETECTOR_SEC = 30;
 const NONDEX_FAILURE_RERUN_COUNT = 5;
@@ -205,7 +206,6 @@ export async function detectNonDex(
 }
 
 // Section 2.3.1 Isolation in Lam et al https://cs.gmu.edu/~winglam/publications/2020/LamETAL20OOPSLA.pdf
-const xmlParser = new XMLParser();
 export async function detectIsolation(
     {
         qualifiedTestName,
@@ -226,8 +226,12 @@ export async function detectIsolation(
         "utf-8"
     );
 
-    const flakyFailure = xmlParser.parse(testXml).testclass.testcase
-        .flakyFailure as { stackTrace: string }[] | undefined;
+    const flakyFailure = toArray(
+        xmlParser.parse(testXml).testclass.testcase.flakyFailure as
+            | { stackTrace: string }
+            | { stackTrace: string }[]
+            | undefined
+    );
 
     if (flakyFailure) {
         for (const { stackTrace } of flakyFailure) {
@@ -283,10 +287,15 @@ export async function detectOneByOne(
             (xmlParser.parse(testXml).testclass.testcase[1] as
                 | {
                       failure: string;
-                      rerunFailure: { stackTrace: string }[] | undefined;
+                      rerunFailure:
+                          | { stackTrace: string }
+                          | { stackTrace: string }[]
+                          | undefined;
                   }
                 | {
-                      flakyFailure: { stackTrace: string };
+                      flakyFailure:
+                          | { stackTrace: string }
+                          | { stackTrace: string }[];
                   }
                 | "") || undefined;
 
@@ -302,21 +311,23 @@ export async function detectOneByOne(
             continue;
         }
 
-        const failure =
-            "flakyFailure" in result
-                ? result.flakyFailure.stackTrace
-                : result.failure;
-        detectorRuns.push({
-            passed: false,
-            prefixMd5,
-            test: qualifiedTestName,
-            tool: "OBO",
-            failure: failure.slice(0, failure.indexOf("\n")),
-            log: test,
-        });
+        if ("failure" in result) {
+            const failure = result.failure;
+            detectorRuns.push({
+                passed: false,
+                prefixMd5,
+                test: qualifiedTestName,
+                tool: "OBO",
+                failure: failure.slice(0, failure.indexOf("\n")),
+                log: test,
+            });
+        }
 
-        if ("rerunFailure" in result && result.rerunFailure) {
-            for (const { stackTrace } of result.rerunFailure) {
+        const stackTraces = toArray(
+            "rerunFailure" in result ? result.rerunFailure : result.flakyFailure
+        );
+        if (stackTraces) {
+            for (const { stackTrace } of stackTraces) {
                 detectorRuns.push({
                     passed: false,
                     prefixMd5,
@@ -328,4 +339,9 @@ export async function detectOneByOne(
             }
         }
     }
+}
+
+function toArray<T>(obj: T | T[] | undefined): T[] | undefined {
+    if (!obj) return undefined;
+    return Array.isArray(obj) ? obj : [obj];
 }
