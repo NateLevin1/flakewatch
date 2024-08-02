@@ -31,6 +31,8 @@ export type DetectorInfo = {
     timeoutSecs: number;
 };
 
+type StackTraceObj = { stackTrace: string };
+
 // based on page 12 of Lam et al https://cs.gmu.edu/~winglam/publications/2020/LamETAL20OOPSLA.pdf
 export async function runDetectors({
     qualifiedTestName,
@@ -239,8 +241,8 @@ export async function detectIsolation(
 
     const flakyFailures = toArray(
         xmlParser.parse(testXml).testclass.testcase.flakyFailure as
-            | { stackTrace: string }
-            | { stackTrace: string }[]
+            | StackTraceObj
+            | StackTraceObj[]
             | undefined
     );
 
@@ -309,21 +311,23 @@ export async function detectOneByOne(
             `${fullModulePath}/target/surefire-reports/TEST-${className}.xml`,
             "utf-8"
         );
+        type TestCaseType =
+            | {
+                  failure: string;
+                  rerunFailure: StackTraceObj | StackTraceObj[] | undefined;
+              }
+            | {
+                  flakyFailure: StackTraceObj | StackTraceObj[];
+              }
+            | "";
+        const testcase = toArray(
+            (xmlParser.parse(testXml).testclass.testcase as
+                | TestCaseType
+                | TestCaseType[]
+                | "") || undefined
+        );
         const result =
-            (xmlParser.parse(testXml).testclass.testcase[1] as
-                | {
-                      failure: string;
-                      rerunFailure:
-                          | { stackTrace: string }
-                          | { stackTrace: string }[]
-                          | undefined;
-                  }
-                | {
-                      flakyFailure:
-                          | { stackTrace: string }
-                          | { stackTrace: string }[];
-                  }
-                | "") || undefined;
+            testcase && (testcase.length === 1 ? testcase[0]! : testcase[1]!);
 
         console.log("[!] DEBUG:");
         console.log(
@@ -333,7 +337,7 @@ export async function detectOneByOne(
         console.log(JSON.stringify(xmlParser.parse(testXml), null, 2));
         console.log("\n\nresult " + JSON.stringify(result, null, 2));
 
-        if (!result) {
+        if (!testcase || !result) {
             detectorRuns.push({
                 passed: true,
                 prefixMd5,
