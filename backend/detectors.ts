@@ -205,6 +205,7 @@ export async function detectNonDex(
     }
 }
 
+const runRegex = /[R|O]\]   Run \d/g;
 // Section 2.3.1 Isolation in Lam et al https://cs.gmu.edu/~winglam/publications/2020/LamETAL20OOPSLA.pdf
 export async function detectIsolation(
     {
@@ -217,7 +218,7 @@ export async function detectIsolation(
     detectorRuns: DetectorRun[]
 ) {
     const reruns = 99; // TODO: can we vary if this is a long-running test?
-    await exec(
+    const { stdout: output } = await exec(
         `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${qualifiedTestName} -Dsurefire.rerunTestsCount=${reruns} ${pl} -B`
     );
 
@@ -226,26 +227,14 @@ export async function detectIsolation(
         "utf-8"
     );
 
-    const flakyFailure = toArray(
+    const flakyFailures = toArray(
         xmlParser.parse(testXml).testclass.testcase.flakyFailure as
             | { stackTrace: string }
             | { stackTrace: string }[]
             | undefined
     );
 
-    if (flakyFailure) {
-        for (const { stackTrace } of flakyFailure) {
-            detectorRuns.push({
-                passed: false,
-                prefixMd5: "",
-                test: qualifiedTestName,
-                tool: "Isolation",
-                failure: stackTrace.slice(0, stackTrace.indexOf("\n")),
-                log: undefined,
-            });
-        }
-    }
-    for (let i = 0; i < reruns + 1 - (flakyFailure?.length ?? 0); i++) {
+    const pushPass = () => {
         detectorRuns.push({
             passed: true,
             prefixMd5: "",
@@ -254,6 +243,33 @@ export async function detectIsolation(
             failure: undefined,
             log: undefined,
         });
+    };
+
+    if (flakyFailures) {
+        const runs = output.match(runRegex)!;
+        let failureIndex = 0;
+        for (const run of runs) {
+            if (run[0] === "R") {
+                // ERRO(R)
+                const { stackTrace } = flakyFailures[failureIndex]!;
+                detectorRuns.push({
+                    passed: false,
+                    prefixMd5: "",
+                    test: qualifiedTestName,
+                    tool: "Isolation",
+                    failure: stackTrace.slice(0, stackTrace.indexOf("\n")),
+                    log: undefined,
+                });
+                failureIndex += 1;
+            } else {
+                // INF(O)
+                pushPass();
+            }
+        }
+    } else {
+        for (let i = 0; i < reruns + 1; i++) {
+            pushPass();
+        }
     }
 }
 
