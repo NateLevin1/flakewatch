@@ -315,6 +315,14 @@ export async function detectOneByOne(
                   }
                 | "") || undefined;
 
+        console.log("[!] DEBUG:");
+        console.log(
+            "running test " + test + " then " + qualifiedTestName + "\n"
+        );
+        console.log("testXml " + testXml);
+        console.log(JSON.stringify(xmlParser.parse(testXml), null, 2));
+        console.log("\n\nresult " + JSON.stringify(result, null, 2));
+
         if (!result) {
             detectorRuns.push({
                 passed: true,
@@ -326,11 +334,6 @@ export async function detectOneByOne(
             });
             continue;
         }
-
-        console.log("[!] DEBUG:");
-        console.log("testXml " + testXml);
-        console.log(JSON.stringify(xmlParser.parse(testXml), null, 2));
-        console.log("\n\nresult " + JSON.stringify(result, null, 2));
 
         if ("failure" in result) {
             const failure = result.failure;
