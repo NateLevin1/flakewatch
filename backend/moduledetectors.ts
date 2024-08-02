@@ -178,7 +178,7 @@ export async function detectIDFlakies(
                     index = output.lastIndexOf("\n", index - 1);
                 }
                 const failureEndIndex = output.indexOf("\n", index + 1);
-                failure = output.slice(index + 1, failureEndIndex);
+                failure = md5(output.slice(index + 1, failureEndIndex));
             }
             existingRuns.push({
                 test,

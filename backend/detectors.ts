@@ -190,7 +190,9 @@ export async function detectNonDex(
                         )
                     );
                     const fullFailure = xml.testsuite.testcase.failure;
-                    failure = fullFailure.slice(0, fullFailure.indexOf("\n"));
+                    failure = md5(
+                        fullFailure.slice(0, fullFailure.indexOf("\n"))
+                    );
                 }
 
                 detectorRuns.push({
@@ -269,7 +271,7 @@ export async function detectIsolation(
                     prefixMd5: "",
                     test: qualifiedTestName,
                     tool: "Isolation",
-                    failure: stackTrace.slice(0, stackTrace.indexOf("\n")),
+                    failure: md5(stackTrace.slice(0, stackTrace.indexOf("\n"))),
                     log: undefined,
                 });
                 failureIndex += 1;
@@ -356,7 +358,7 @@ export async function detectOneByOne(
                 prefixMd5,
                 test: qualifiedTestName,
                 tool: "OBO",
-                failure: failure.slice(0, failure.indexOf("\n")),
+                failure: md5(failure.slice(0, failure.indexOf("\n"))),
                 log: test,
             });
         }
@@ -371,7 +373,7 @@ export async function detectOneByOne(
                     prefixMd5,
                     test: qualifiedTestName,
                     tool: "OBO",
-                    failure: stackTrace.slice(0, stackTrace.indexOf("\n")),
+                    failure: md5(stackTrace.slice(0, stackTrace.indexOf("\n"))),
                     log: test,
                 });
             }
