@@ -311,6 +311,11 @@ export async function detectOneByOne(
             continue;
         }
 
+        console.log("[!] DEBUG:");
+        console.log("testXml " + testXml);
+        console.log(JSON.stringify(xmlParser.parse(testXml), null, 2));
+        console.log("\n\nresult " + JSON.stringify(result, null, 2));
+
         if ("failure" in result) {
             const failure = result.failure;
             detectorRuns.push({
