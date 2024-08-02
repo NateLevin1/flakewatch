@@ -270,7 +270,7 @@ export async function detectOneByOne(
         if (test === qualifiedTestName) continue;
 
         await exec(
-            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} -Dsurefire.rerunFailingTestsCount=${OBO_FAILURE_RERUN_COUNT} -Dmaven.test.failure.ignore=true ${pl} -B`
+            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} -Dsurefire.rerunFailingTestsCount=${OBO_FAILURE_RERUN_COUNT} ${pl} -B`
         );
 
         const prefixMd5 = md5(test + qualifiedTestName);
@@ -311,7 +311,7 @@ export async function detectOneByOne(
             prefixMd5,
             test: qualifiedTestName,
             tool: "OBO",
-            failure,
+            failure: failure.slice(0, failure.indexOf("\n")),
             log: test,
         });
 
@@ -322,7 +322,7 @@ export async function detectOneByOne(
                     prefixMd5,
                     test: qualifiedTestName,
                     tool: "OBO",
-                    failure: stackTrace,
+                    failure: stackTrace.slice(0, stackTrace.indexOf("\n")),
                     log: test,
                 });
             }
