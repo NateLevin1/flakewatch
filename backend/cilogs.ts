@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import type { DefaultLogFields, LogResult } from "simple-git";
 import type { FlakewatchResults, ProjectInfo } from "./shared.js";
 import { octokit } from "./flakewatch.js";
-import { exec } from "./detectors.js";
+import { exec } from "./runutils.js";
 
 const failureRegexA =
     /(?<className>[A-Za-z0-9_.]+)\.(?<testName>[A-Za-z0-9_]+)\s*-.+ <<< ERROR!/gi;

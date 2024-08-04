@@ -1,5 +1,5 @@
 import AdmZip from "adm-zip";
-import { exec } from "./detectors.js";
+import { exec } from "./runutils.js";
 import fs from "fs/promises";
 import type { DetectorRun } from "./runutils.js";
 import type { FlakyCategory } from "./shared.js";

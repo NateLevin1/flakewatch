@@ -1,3 +1,5 @@
+import util from "util";
+import { exec as execC } from "child_process";
 import crypto from "crypto";
 
 export type DetectorRun = {
@@ -44,3 +46,5 @@ export const createTimeoutFunction = (
 export const md5 = (str: string) => {
     return crypto.createHash("md5").update(str).digest("hex");
 };
+
+export const exec = util.promisify(execC);

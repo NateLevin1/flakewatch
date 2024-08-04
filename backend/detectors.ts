@@ -1,9 +1,8 @@
-import util from "util";
-import { exec as execC } from "child_process";
 import type { FlakyCategory, ProjectInfo } from "./shared.js";
 import type { ModuleCommitInfo } from "./moduledetectors.js";
 import {
     createTimeoutFunction,
+    exec,
     md5,
     run,
     type DetectorRun as DetectorRun,
@@ -17,8 +16,6 @@ const NUM_DETECTORS = 3;
 const MIN_DETECTOR_SEC = 30;
 const NONDEX_FAILURE_RERUN_COUNT = 5;
 const OBO_FAILURE_RERUN_COUNT = 4;
-
-export const exec = util.promisify(execC);
 
 export type DetectorInfo = {
     qualifiedTestName: string;

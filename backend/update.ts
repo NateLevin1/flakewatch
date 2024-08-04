@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import { simpleGit } from "simple-git";
 import type { ProjectInfo, UpdateResults } from "./shared.js";
-import { exec } from "./detectors.js";
+import { exec } from "./runutils.js";
 
 if (!process.argv[2]) throw new Error("Missing project info argument");
 const projectInfo = JSON.parse(process.argv[2]) as ProjectInfo;

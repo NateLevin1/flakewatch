@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import type { ProjectInfo } from "./shared.js";
-import { exec } from "./detectors.js";
+import { exec } from "./runutils.js";
 import {
     createTimeoutFunction,
     md5,
