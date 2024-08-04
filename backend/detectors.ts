@@ -98,11 +98,15 @@ export async function runDetectors({
     );
     console.log(" --- Finished NonDex");
 
-    const category = await categorize(
+    const category = await categorize({
         qualifiedTestName,
         detectorRuns,
-        commitSha
-    );
+        commitSha,
+        fullModulePath,
+    });
+
+    // cleanup
+    await exec(`rm -rf /tmp/*-logs`);
 
     return { category };
 }
@@ -210,7 +214,9 @@ export async function detectNonDex(
             }
         }
 
-        await exec(`rm -rf ${fullModulePath}/.nondex`);
+        await exec(
+            `mkdir -p /tmp/nondex-logs && cp -r ${fullModulePath}/.nondex /tmp/nondex-logs/nondex${rerunSeed} && rm -rf ${fullModulePath}/.nondex`
+        );
         for (const seed of reruns) {
             await detectNonDex(detectorInfo, detectorRuns, seed);
         }
@@ -236,10 +242,13 @@ export async function detectIsolation(
         `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${qualifiedTestName} -Dsurefire.rerunTestsCount=${reruns} ${pl} -B`
     );
 
-    const testXml = await fs.readFile(
-        `${fullModulePath}/target/surefire-reports/TEST-${className}.xml`,
-        "utf-8"
+    const reportPath = `${fullModulePath}/target/surefire-reports/TEST-${className}.xml`;
+    const testXml = await fs.readFile(reportPath, "utf-8");
+
+    await exec(
+        `mkdir -p /tmp/isolation-logs && cp ${reportPath} /tmp/isolation-logs/report.xml`
     );
+    await fs.writeFile("/tmp/isolation-logs/output.log", output);
 
     const flakyFailures = toArray(
         xmlParser.parse(testXml).testclass.testcase.flakyFailure as
@@ -303,16 +312,20 @@ export async function detectOneByOne(
     for (const test of allTests) {
         if (test === qualifiedTestName) continue;
 
-        await exec(
+        const { stdout: output } = await exec(
             `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} -Dsurefire.rerunFailingTestsCount=${OBO_FAILURE_RERUN_COUNT} ${pl} -B`
         );
 
         const prefixMd5 = md5(test + qualifiedTestName);
 
-        const testXml = await fs.readFile(
-            `${fullModulePath}/target/surefire-reports/TEST-${className}.xml`,
-            "utf-8"
+        const reportPath = `${fullModulePath}/target/surefire-reports/TEST-${className}.xml`;
+        const testXml = await fs.readFile(reportPath, "utf-8");
+
+        await exec(
+            `mkdir -p /tmp/obo-logs && cp ${reportPath} /tmp/obo-logs/report.xml`
         );
+        await fs.writeFile("/tmp/obo-logs/output.log", output);
+
         type TestCaseType =
             | {
                   failure: string;
@@ -330,14 +343,6 @@ export async function detectOneByOne(
         );
         const result =
             testcase && (testcase.length === 1 ? testcase[0]! : testcase[1]!);
-
-        console.log("[!] DEBUG:");
-        console.log(
-            "running test " + test + " then " + qualifiedTestName + "\n"
-        );
-        console.log("testXml " + testXml);
-        console.log(JSON.stringify(xmlParser.parse(testXml), null, 2));
-        console.log("\n\nresult " + JSON.stringify(result, null, 2));
 
         if (!testcase || !result) {
             detectorRuns.push({

@@ -7,11 +7,17 @@ import type { FlakyCategory } from "./shared.js";
 const escape = (str: string) =>
     str.replaceAll("\n", "\\n").replaceAll(",", " ");
 
-export async function categorize(
-    qualifiedTestName: string,
-    detectorRuns: DetectorRun[],
-    commitSha: string
-): Promise<FlakyCategory | undefined> {
+export async function categorize({
+    qualifiedTestName,
+    detectorRuns,
+    commitSha,
+    fullModulePath,
+}: {
+    qualifiedTestName: string;
+    detectorRuns: DetectorRun[];
+    commitSha: string;
+    fullModulePath: string;
+}): Promise<FlakyCategory | undefined> {
     // if this file gets too large, we may want to write it gzipped
     const detectorRunsCsv =
         "test,prefix_md5,tool,status,failure_md5,log\n" +
@@ -41,12 +47,31 @@ export async function categorize(
 
         const zip = new AdmZip();
         zip.addFile("detectorRuns.csv", Buffer.from(detectorRunsCsv));
+        await addLocalFolderToZip(
+            fullModulePath + "/.dtfixingtools/",
+            "idflakies",
+            zip
+        );
+        await addLocalFolderToZip("/tmp/nondex-logs/", "nondex", zip);
+        await addLocalFolderToZip("/tmp/isolation-logs/", "isolation", zip);
+        await addLocalFolderToZip("/tmp/obo-logs/", "obo", zip);
         const hash = commitSha.slice(0, 7);
         const testName = qualifiedTestName.replaceAll(".", "-");
+        const date = new Date().toISOString().slice(0, 10);
         await zip.writeZipPromise(
-            `/home/flakewatch/failure-logs/${testName}-${hash}.zip`
+            `/home/flakewatch/failure-logs/${testName}-${date}-${hash}.zip`
         );
     }
 
     return category || undefined;
+}
+
+function addLocalFolderToZip(localPath: string, folder: string, zip: AdmZip) {
+    return new Promise((res, rej) =>
+        zip.addLocalFolderAsync(
+            localPath,
+            (success, err) => (err ? rej(err) : res(success)),
+            "logs/" + folder + "/"
+        )
+    );
 }
