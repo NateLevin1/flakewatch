@@ -323,10 +323,11 @@ export async function detectOneByOne(
         const reportPath = `${fullModulePath}/target/surefire-reports/TEST-${className}.xml`;
         const testXml = await fs.readFile(reportPath, "utf-8");
 
+        const cleanTest = test.replaceAll(".", "-");
         await exec(
-            `mkdir -p /tmp/obo-logs && cp ${reportPath} /tmp/obo-logs/report.xml`
+            `mkdir -p /tmp/obo-logs && cp ${reportPath} /tmp/obo-logs/${cleanTest}-report.xml`
         );
-        await fs.writeFile("/tmp/obo-logs/output.log", output);
+        await fs.writeFile(`/tmp/obo-logs/${cleanTest}-output.log`, output);
 
         type TestCaseType =
             | {
