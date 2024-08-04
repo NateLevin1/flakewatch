@@ -117,6 +117,7 @@ export async function detectNonDex(
     rerunSeed = ""
 ) {
     const { qualifiedTestName, fullModulePath, timeoutSecs } = detectorInfo;
+    const nondexDir = fullModulePath + "/.nondex";
     // TODO: reruns don't follow timeouts & may take up too much time with brittle tests (50 runs guaranteed)
     const nondexOpts = rerunSeed
         ? `-DnondexSeed=${rerunSeed} -DnondexRerun=true -DnondexRuns=${NONDEX_FAILURE_RERUN_COUNT}`
@@ -140,14 +141,15 @@ export async function detectNonDex(
             }
         }
 
-        const nondexDir = fullModulePath + "/.nondex/";
         const files = await fs.readdir(nondexDir, {
             withFileTypes: true,
         });
         const filesWithCreationTime = await Promise.all(
             files.map(async (file) => ({
                 file,
-                creationTime: (await fs.stat(nondexDir + file)).birthtimeMs,
+                creationTime: (
+                    await fs.stat(`${nondexDir}/${file.name}`)
+                ).birthtimeMs,
             }))
         );
         const orderedFiles = filesWithCreationTime
@@ -163,11 +165,11 @@ export async function detectNonDex(
                 try {
                     infoFiles = await Promise.all([
                         fs.readFile(
-                            `${fullModulePath}/.nondex/${file.name}/failures`,
+                            `${nondexDir}/${file.name}/failures`,
                             "utf-8"
                         ),
                         fs.readFile(
-                            `${fullModulePath}/.nondex/${file.name}/config`,
+                            `${nondexDir}/${file.name}/config`,
                             "utf-8"
                         ),
                     ]);
@@ -189,7 +191,7 @@ export async function detectNonDex(
                     const className = qualifiedTestName.split("#")[0];
                     const xml = xmlParser.parse(
                         await fs.readFile(
-                            `${fullModulePath}/.nondex/${file.name}/TEST-${className}.xml`,
+                            `${nondexDir}/${file.name}/TEST-${className}.xml`,
                             "utf-8"
                         )
                     );
@@ -215,13 +217,13 @@ export async function detectNonDex(
         }
 
         await exec(
-            `mkdir -p /tmp/nondex-logs && cp -r ${fullModulePath}/.nondex /tmp/nondex-logs/nondex${rerunSeed} && rm -rf ${fullModulePath}/.nondex`
+            `mkdir -p /tmp/nondex-logs && cp -r ${nondexDir} /tmp/nondex-logs/nondex${rerunSeed} && rm -rf ${nondexDir}`
         );
         for (const seed of reruns) {
             await detectNonDex(detectorInfo, detectorRuns, seed);
         }
     } finally {
-        await exec(`rm -rf ${fullModulePath}/.nondex`);
+        await exec(`rm -rf ${nondexDir}`);
     }
 }
 
