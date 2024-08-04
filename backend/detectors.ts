@@ -217,7 +217,9 @@ export async function detectNonDex(
         }
 
         await exec(
-            `mkdir -p /tmp/nondex-logs && cp -r ${nondexDir} /tmp/nondex-logs/nondex${rerunSeed} && rm -rf ${nondexDir}`
+            `mkdir -p /tmp/nondex-logs && cp -r ${nondexDir} /tmp/nondex-logs/nondex${
+                rerunSeed ? "-" + rerunSeed : ""
+            } && rm -rf ${nondexDir}`
         );
         for (const seed of reruns) {
             await detectNonDex(detectorInfo, detectorRuns, seed);
