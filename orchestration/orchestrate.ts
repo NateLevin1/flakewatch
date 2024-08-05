@@ -107,7 +107,7 @@ async function orchestrateProject(project: Project) {
     }
 }
 
-async function readFlakewatchResultsToDB(project: Project) {
+export async function readFlakewatchResultsToDB(project: Project) {
     const firstDetectTime = Date.now();
 
     const resultsPath = `./results/flakewatch-results-${project.name}.json`;

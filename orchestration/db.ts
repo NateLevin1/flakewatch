@@ -13,7 +13,7 @@ export type Flaky = {
     category?: string;
 };
 
-let db: Database.Database;
+let db: Database.Database | undefined = undefined;
 
 export function setup() {
     db = new Database("flakewatch.db");
@@ -25,7 +25,7 @@ export function setup() {
         "CREATE TABLE IF NOT EXISTS projects (name TEXT PRIMARY KEY, lastCheckedCommit TEXT)"
     ).run();
 
-    process.on("exit", () => db.close());
+    process.on("exit", () => db && db.close());
     process.on("SIGHUP", () => process.exit(128 + 1));
     process.on("SIGINT", () => process.exit(128 + 2));
     process.on("SIGTERM", () => process.exit(128 + 15));
@@ -44,6 +44,7 @@ export function toCsv(fn: () => Flaky[]) {
 }
 
 export function getActiveFlakies() {
+    if (!db) return [];
     return db
         .prepare(
             "SELECT * FROM flakies WHERE fixCommit IS NULL ORDER BY projectURL ASC"
@@ -52,6 +53,7 @@ export function getActiveFlakies() {
 }
 
 export function getAllFlakies() {
+    if (!db) return [];
     return db
         .prepare("SELECT * FROM flakies ORDER BY projectURL ASC")
         .all() as Flaky[];
@@ -72,6 +74,7 @@ export function insertFlaky({
     qualifiedTestName: string;
     category: string;
 }) {
+    if (!db) return;
     db.prepare(
         "INSERT INTO flakies (ulid, projectURL, firstDetectCommit, firstDetectTime, modulePath, qualifiedTestName, category) VALUES (?, ?, ?, ?, ?, ?, ?)"
     ).run(
@@ -86,6 +89,7 @@ export function insertFlaky({
 }
 
 export function getFlaky(qualifiedTestName: string) {
+    if (!db) return;
     return db
         .prepare(
             "SELECT * FROM flakies WHERE qualifiedTestName = ? ORDER BY firstDetectTime DESC LIMIT 1"
@@ -98,6 +102,7 @@ export function markFlakyFixed(
     fixTime: number,
     qualifiedTestName: string
 ) {
+    if (!db) return;
     db.prepare(
         "UPDATE flakies SET fixCommit = ?, fixTime = ? WHERE ulid in (SELECT ulid FROM flakies WHERE qualifiedTestName = ? ORDER BY firstDetectTime DESC LIMIT 1);"
     ).run(fixCommit, fixTime, qualifiedTestName);
@@ -108,6 +113,7 @@ export function updateFlakyCategory(
     oldCategory: string,
     category: string
 ) {
+    if (!db) return;
     // merge categories
     const newCategory = oldCategory
         .split("&")
@@ -123,10 +129,12 @@ export function updateFlakyCategory(
 }
 
 export function deleteFlaky(ulid: string) {
+    if (!db) return;
     db.prepare("DELETE FROM flakies WHERE ulid = ?").run(ulid);
 }
 
 export function getProjectLastCheckedCommit(projectName: string) {
+    if (!db) return;
     return (
         db
             .prepare("SELECT lastCheckedCommit FROM projects WHERE name = ?")
@@ -138,6 +146,7 @@ export function setProjectLastCheckedCommit(
     projectName: string,
     commit: string
 ) {
+    if (!db) return;
     db.prepare(
         "REPLACE INTO projects (name, lastCheckedCommit) VALUES (?, ?)"
     ).run(projectName, commit);

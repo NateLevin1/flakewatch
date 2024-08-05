@@ -94,6 +94,15 @@ Each detector run must match the following type:
 > [!WARNING]  
 > The detector file should not import from `detectors.ts` (types are OK, anything else will cause a crash).
 
+## Running Detectors for a Single Project/Test
+
+```bash
+cd orchestration
+npm start -- <gitURL> <commit> <test> (module) (--keepAlive)
+```
+
+The `keepAlive` option will keep the container running after the detectors have finished. The container and its files will never be automatically removed, so only use this option if you need to be able to run commands inside the container after detectors have run.
+
 ## Running the Categorization Script
 
 ```bash

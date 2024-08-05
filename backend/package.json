@@ -17,6 +17,7 @@
         "test": "echo \"Error: no test specified\" && exit 1",
         "flakewatch": "node dist/flakewatch.js",
         "update": "node dist/update.js",
+        "detect-from-test": "node dist/scripts/detectfromtest.js",
         "build": "tsc"
     },
     "repository": {
