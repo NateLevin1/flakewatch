@@ -6,4 +6,5 @@ disabled-projects
 ci-logs
 results
 failure-logs
+detector-errors
 .env
