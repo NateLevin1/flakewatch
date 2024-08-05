@@ -31,12 +31,14 @@ let detectors:
       }[] = await (async () => {
     const files = await fs.readdir(import.meta.dirname + "/detectors");
     return Promise.all(
-        files.map(async (file) => {
-            const { default: run } = await import(
-                import.meta.dirname + "/detectors/" + file
-            );
-            return { name: file.split(".")[0]!, run };
-        })
+        files
+            .filter((file) => file.endsWith(".js")) // avoid .d.ts and .map
+            .map(async (file) => {
+                const { default: run } = await import(
+                    import.meta.dirname + "/detectors/" + file
+                );
+                return { name: file.split(".")[0]!, run };
+            })
     );
 })();
 
