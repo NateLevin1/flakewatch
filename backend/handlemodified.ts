@@ -6,6 +6,7 @@ import {
 } from "./moduledetectors.js";
 import type { ModifiedTests } from "./flakewatch.js";
 import type { SimpleGit } from "simple-git";
+import fs from "fs/promises";
 
 export async function handleModifiedTests(
     modifiedTests: ModifiedTests,
@@ -112,5 +113,28 @@ export async function handleModifiedTests(
         }
         await git.reset(["--hard"]);
         await git.checkout(project.branch);
+    }
+}
+
+export async function onFlakewatchComplete(
+    project: ProjectInfo,
+    result: FlakewatchResults
+) {
+    await fs.writeFile(
+        "/home/flakewatch/flakewatch-results.json",
+        JSON.stringify(result)
+    );
+
+    if (project.debug?.keepContainerAlive) {
+        console.log(
+            "[!] [!] [!] DEBUG ENABLED: KEEPING CONTAINER ALIVE. [!] [!] [!]"
+        );
+        setInterval(() => {
+            console.log("container heartbeat");
+        }, 1000 * 60 * 60);
+        setTimeout(() => {
+            console.log("Killing container after time out.");
+            process.exit(1);
+        }, 1000 * 60 * 60 * 24);
     }
 }

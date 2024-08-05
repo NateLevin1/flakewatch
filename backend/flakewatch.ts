@@ -5,7 +5,7 @@ import type { FlakewatchResults, ProjectInfo } from "./shared.js";
 import { parseTests, type Test } from "./parsetests.js";
 import path from "path";
 import { downloadCILogs } from "./cilogs.js";
-import { handleModifiedTests } from "./handlemodified.js";
+import { handleModifiedTests, onFlakewatchComplete } from "./handlemodified.js";
 
 if (!process.argv[2]) throw new Error("Missing project info argument");
 const projectInfo = JSON.parse(process.argv[2]) as ProjectInfo;
@@ -60,23 +60,7 @@ export async function flakewatch(project: ProjectInfo) {
             }
         }
     } finally {
-        await fs.writeFile(
-            "/home/flakewatch/flakewatch-results.json",
-            JSON.stringify(result)
-        );
-
-        if (project.debug?.keepContainerAlive) {
-            console.log(
-                "[!] [!] [!] DEBUG ENABLED: KEEPING CONTAINER ALIVE. [!] [!] [!]"
-            );
-            setInterval(() => {
-                console.log("container heartbeat");
-            }, 1000 * 60 * 60);
-            setTimeout(() => {
-                console.log("Killing container after time out.");
-                process.exit(1);
-            }, 1000 * 60 * 60 * 24);
-        }
+        await onFlakewatchComplete(project, result);
     }
 }
 

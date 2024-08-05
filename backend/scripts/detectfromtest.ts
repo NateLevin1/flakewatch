@@ -1,5 +1,8 @@
 import { simpleGit } from "simple-git";
-import { handleModifiedTests } from "../handlemodified.js";
+import {
+    handleModifiedTests,
+    onFlakewatchComplete,
+} from "../handlemodified.js";
 
 if (!process.argv[2]) throw new Error("Missing project info argument");
 
@@ -22,20 +25,24 @@ console.log("Running detectors for", name, commit, test, module, branch);
 
 const results = { detections: [], ciDetections: [] };
 
-await handleModifiedTests(
-    [
-        {
-            commit,
-            count: 1,
-            module: module ?? "",
-            testName: test,
-        },
-    ],
-    commit,
-    results,
-    { ...projectInfo, branch } as any,
-    git
-);
+try {
+    await handleModifiedTests(
+        [
+            {
+                commit,
+                count: 1,
+                module: module ?? "",
+                testName: test,
+            },
+        ],
+        commit,
+        results,
+        { ...projectInfo, branch } as any,
+        git
+    );
+} finally {
+    console.log("[!] Results:");
+    console.log(results.detections);
 
-console.log("[!] Results:");
-console.log(results.detections);
+    await onFlakewatchComplete(projectInfo as any, results);
+}

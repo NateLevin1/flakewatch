@@ -13,6 +13,10 @@ export async function cli(args: string[]) {
         return;
     }
 
+    console.log("Running detectors for", gitURL, commit, test, module);
+    if (keepAliveIndex != -1)
+        console.log("- keeping container alive, press Ctrl+C to stop");
+
     const name = gitURL.split("/").at(-1)!;
     const project = {
         name,
@@ -23,6 +27,8 @@ export async function cli(args: string[]) {
         debug: {
             keepContainerAlive: keepAliveIndex != -1,
             leaveContainers: true,
+            minsAllowedPerModuleCommit: process.env.MINS_PER_MODULE_COMMIT ?? 3,
+            minsAllowedPerTest: process.env.MINS_PER_TEST ?? 3,
         },
     };
 
