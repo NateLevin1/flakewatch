@@ -2,13 +2,13 @@ import { exec, readFlakewatchResultsToDB } from "./orchestrate.js";
 import type { ProjectInfo } from "./shared.js";
 
 export async function cli(args: string[]) {
-    const keepAliveIndex = args.findIndex((arg) => arg === "--keepAlive");
+    const keepAliveIndex = args.findIndex((arg) => arg === "--keep-alive");
     if (keepAliveIndex != -1) args.splice(keepAliveIndex, 1);
 
     const [gitURL, commit, test, module] = args;
     if (!gitURL || !commit || !test) {
         console.log(
-            "Usage: npm start -- <gitURL> <commit> <test> (module) (--keepAlive)"
+            "Usage: npm start -- <gitURL> <commit> <test> (module) (--keep-alive)"
         );
         return;
     }

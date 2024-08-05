@@ -20,6 +20,23 @@ This command will build the base docker container and start the server. Expect t
 
 Once the server has started, you can navigate to http://localhost:8080/list.csv in your browser at any time to download the live list of flaky tests. Every midnight, the server will automatically run detectors on projects that have changed and update the list.
 
+## Running Detectors for a Single Project/Test
+
+Flakewatch can be used to run detectors on a single project and test. This has a variety of uses, including quickly categorizing a flaky test, or debugging detectors. The following commands will run detectors on a single test:
+
+```bash
+cd orchestration
+npm start -- <gitURL> <commit> <test> (module) (--keep-alive)
+```
+
+The `keepAlive` option will keep the container running after the detectors have finished. The container and its files will never be automatically removed, so only use this option if you need to be able to run commands inside the container after detectors have run.
+
+Example:
+
+```bash
+npm start -- https://github.com/NateLevin1/test-nondex 1fb14a8 com.example.HmOrderTest#testGetAlphabet
+```
+
 ## Adding Projects & Configuration
 
 To add a new project, create a new JSON file in the `orchestration/projects` directory. The file should have the following structure:
@@ -93,15 +110,6 @@ Each detector run must match the following type:
 
 > [!WARNING]  
 > The detector file should not import from `detectors.ts` (types are OK, anything else will cause a crash).
-
-## Running Detectors for a Single Project/Test
-
-```bash
-cd orchestration
-npm start -- <gitURL> <commit> <test> (module) (--keepAlive)
-```
-
-The `keepAlive` option will keep the container running after the detectors have finished. The container and its files will never be automatically removed, so only use this option if you need to be able to run commands inside the container after detectors have run.
 
 ## Running the Categorization Script
 
