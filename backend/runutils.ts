@@ -77,3 +77,8 @@ export const execTimeout = async (
         return error;
     }
 };
+
+export function toArray<T>(obj: T | T[] | undefined): T[] | undefined {
+    if (!obj) return undefined;
+    return Array.isArray(obj) ? obj : [obj];
+}

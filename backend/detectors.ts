@@ -9,8 +9,6 @@ import {
 import fs from "fs/promises";
 import { categorize } from "./categorize.js";
 
-const MIN_DETECTOR_SEC = 30;
-
 export type DetectorInfo = {
     qualifiedTestName: string;
     fullModulePath: string;
@@ -24,20 +22,24 @@ export type DetectorInfo = {
 
 export type StackTraceObj = { stackTrace: string };
 
-const files = await fs.readdir(import.meta.dirname + "/detectors");
-const detectors: {
-    name: string;
-    run: (info: DetectorInfo, runs: DetectorRun[]) => Promise<void>;
-}[] = await Promise.all(
-    files
-        .filter((file) => file.endsWith(".js")) // avoid .d.ts and .map
-        .map(async (file) => {
-            const imported = await import(
-                import.meta.dirname + "/detectors/" + file
-            );
-            return { name: file.split(".")[0]!, run: imported.default };
-        })
-);
+const MIN_DETECTOR_SEC = 30;
+let detectors:
+    | {
+          name: string;
+          run: (info: DetectorInfo, runs: DetectorRun[]) => Promise<void>;
+      }[] = await (async () => {
+    const files = await fs.readdir(import.meta.dirname + "/detectors");
+    return Promise.all(
+        files
+            .filter((file) => file.endsWith(".js")) // avoid .d.ts and .map
+            .map(async (file) => {
+                const imported = await import(
+                    import.meta.dirname + "/detectors/" + file
+                );
+                return { name: file.split(".")[0]!, run: imported.default };
+            })
+    );
+})();
 
 // based on page 12 of Lam et al https://cs.gmu.edu/~winglam/publications/2020/LamETAL20OOPSLA.pdf
 export async function runDetectors({
@@ -105,9 +107,4 @@ export async function runDetectors({
     await exec(`rm -rf /tmp/*-logs`);
 
     return { category };
-}
-
-export function toArray<T>(obj: T | T[] | undefined): T[] | undefined {
-    if (!obj) return undefined;
-    return Array.isArray(obj) ? obj : [obj];
 }

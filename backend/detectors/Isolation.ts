@@ -1,9 +1,5 @@
-import {
-    toArray,
-    type DetectorInfo,
-    type StackTraceObj,
-} from "../detectors.js";
-import { exec, md5, type DetectorRun } from "../runutils.js";
+import type { DetectorInfo, StackTraceObj } from "../detectors.js";
+import { exec, md5, toArray, type DetectorRun } from "../runutils.js";
 import fs from "fs/promises";
 import { XMLParser } from "fast-xml-parser";
 
