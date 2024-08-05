@@ -52,9 +52,16 @@ export async function categorize({
             "idflakies",
             zip
         );
-        await addLocalFolderToZip("/tmp/nondex-logs/", "nondex", zip);
-        await addLocalFolderToZip("/tmp/isolation-logs/", "isolation", zip);
-        await addLocalFolderToZip("/tmp/obo-logs/", "obo", zip);
+        const tmpFiles = await fs.readdir("/tmp/", { withFileTypes: true });
+        for (const file of tmpFiles) {
+            if (file.isDirectory() && file.name.endsWith("-logs")) {
+                await addLocalFolderToZip(
+                    `/tmp/${file.name}/`,
+                    file.name.replace("-logs", ""),
+                    zip
+                );
+            }
+        }
         const hash = commitSha.slice(0, 7);
         const testName = qualifiedTestName.replaceAll(".", "-");
         const date = new Date().toISOString().slice(0, 10);
