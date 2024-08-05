@@ -34,6 +34,13 @@ To add a new project, create a new JSON file in the `orchestration/projects` dir
 
 To configure other aspects of the server, edit the `orchestration/projects/_config.json` file.
 
+## Adding A New Test-Level Detector
+
+To add a new detector, create a new TypeScript file in the `backend/detectors` directory. The file should default export a function that takes a `DetectorInfo` and a `DetectorRun[]`. To add a new detection, simply `push` to the detector run array. Some error handling is done for you - if an error is thrown, the rest of your detector will be skipped and the error will be logged. Take a look at the existing detectors for examples.
+
+> [!WARNING]  
+> The detector file should not import from `detectors.ts` (types are OK, anything else will cause a crash).
+
 ## Running the Categorization Script
 
 ```bash
