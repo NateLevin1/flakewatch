@@ -3,6 +3,7 @@ import type { ModuleCommitInfo } from "./moduledetectors.js";
 import {
     createTimeoutFunction,
     exec,
+    execTimeout,
     md5,
     run,
     type DetectorRun as DetectorRun,
@@ -120,23 +121,11 @@ export async function detectNonDex(
         ? `-DnondexSeed=${rerunSeed} -DnondexRerun=true -DnondexRuns=${NONDEX_FAILURE_RERUN_COUNT}`
         : "-DnondexRuns=10";
     try {
-        try {
-            await exec(
-                `cd ${fullModulePath} && timeout ${timeoutSecs} mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -DnondexMode=ONE ${nondexOpts} -B`
-            );
-        } catch (e) {
-            // this will happen if A) something went wrong or B) nondex detected a failure
-            // let's check if it is a NonDex error or if the tool failed
-            const error = e as { stdout: string; stderr: string; code: number };
-            // 124 means time ran out
-            if (error.code === 124) {
-                console.log(
-                    " --- NonDex ran out of time (given " + timeoutSecs + "s)"
-                );
-            } else {
-                if (!error.stdout.includes("There are test failures.")) throw e;
-            }
-        }
+        await execTimeout(
+            `cd ${fullModulePath} && mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -DnondexMode=ONE ${nondexOpts} -B`,
+            timeoutSecs,
+            "There are test failures."
+        );
 
         const files = await fs.readdir(nondexDir, {
             withFileTypes: true,
@@ -240,7 +229,7 @@ export async function detectIsolation(
 ) {
     const reruns = 99; // TODO: can we vary if this is a long-running test?
     const { stdout: output } = await exec(
-        `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${qualifiedTestName} -Dsurefire.rerunTestsCount=${reruns} ${pl} -B`
+        `cd ${projectPath} && mvn test -Dmaven.ext.class.path="/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar" -Dsurefire.runOrder=testorder -Dtest=${qualifiedTestName} -Dsurefire.rerunTestsCount=${reruns} ${pl} -B`
     );
 
     const reportPath = `${fullModulePath}/target/surefire-reports/TEST-${className}.xml`;
@@ -306,15 +295,25 @@ export async function detectOneByOne(
         pl,
         fullModulePath,
         className,
+        timeoutSecs,
     }: DetectorInfo,
     detectorRuns: DetectorRun[]
 ) {
+    const startTime = new Date();
+
     // run every test before qualifiedTestName
     for (const test of allTests) {
         if (test === qualifiedTestName) continue;
 
+        // check that we still have time
+        const elapsedSecs = (new Date().getTime() - startTime.getTime()) / 1000;
+        if (elapsedSecs > timeoutSecs) {
+            console.log(" ----- ran out of time (given " + timeoutSecs + "s)");
+            break;
+        }
+
         const { stdout: output } = await exec(
-            `cd ${projectPath} && mvn test -Dmaven.ext.class.path='/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar' -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} -Dsurefire.rerunFailingTestsCount=${OBO_FAILURE_RERUN_COUNT} ${pl} -B`
+            `cd ${projectPath} && mvn test -Dmaven.ext.class.path="/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar" -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} -Dsurefire.rerunFailingTestsCount=${OBO_FAILURE_RERUN_COUNT} ${pl} -B`
         );
 
         const prefixMd5 = md5(test + qualifiedTestName);

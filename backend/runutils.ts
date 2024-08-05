@@ -48,3 +48,32 @@ export const md5 = (str: string) => {
 };
 
 export const exec = util.promisify(execC);
+// NOTE: The cmd passed in should *not* include a `timeout` command or single quotes
+export const execTimeout = async (
+    cmd: string,
+    timeoutSecs: number,
+    ifErrorStdoutMustInclude?: string
+) => {
+    if (/timeout \d|'/g.test(cmd))
+        throw new Error("cmd should not include timeout or single quotes");
+
+    try {
+        return await exec(`timeout ${timeoutSecs} bash -c '${cmd}'`);
+    } catch (e) {
+        // this can happen if A) the timeout hit B) something went wrong or C) a tool returns non-zero when successful
+        const error = e as { stdout: string; stderr: string; code: number };
+        if (error.code === 124) {
+            // case A: 124 is the code for timeout
+            console.log(" ----- ran out of time (given " + timeoutSecs + "s)");
+        } else {
+            // case B or C
+            if (
+                !ifErrorStdoutMustInclude ||
+                !error.stdout.includes(ifErrorStdoutMustInclude) // check case C
+            )
+                throw e;
+        }
+
+        return error;
+    }
+};
