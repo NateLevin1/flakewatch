@@ -5,7 +5,7 @@ export async function cli(args: string[]) {
     const keepAliveIndex = args.findIndex((arg) => arg === "--keep-alive");
     if (keepAliveIndex != -1) args.splice(keepAliveIndex, 1);
 
-    const [gitURL, commit, test, module] = args;
+    let [gitURL, commit, test, module] = args;
     if (!gitURL || !commit || !test) {
         console.log(
             "Usage: npm start -- <gitURL> <commit> <test> (module) (--keep-alive)"
@@ -13,9 +13,10 @@ export async function cli(args: string[]) {
         return;
     }
 
+    gitURL = gitURL.replace(".git", "").replace(/\/$/, "");
+
     console.log("Running detectors for", gitURL, commit, test, module);
-    if (keepAliveIndex != -1)
-        console.log("- keeping container alive, press Ctrl+C to stop");
+    if (keepAliveIndex != -1) console.log("- keeping container alive");
 
     const name = gitURL.split("/").at(-1)!;
     const project = {
