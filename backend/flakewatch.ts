@@ -55,7 +55,13 @@ export async function flakewatch(project: ProjectInfo) {
             const modifiedTests = await findModifiedTests(log);
             if (modifiedTests.length > 0) {
                 const sha = log.latest.hash.slice(0, 7);
-                handleModifiedTests(modifiedTests, sha, result, project, git);
+                await handleModifiedTests(
+                    modifiedTests,
+                    sha,
+                    result,
+                    project,
+                    git
+                );
                 console.log("Finished running detectors.");
             }
         }
