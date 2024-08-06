@@ -7,7 +7,7 @@ import type {
     ProjectInfo,
     UpdateResults,
 } from "./shared.js";
-import { projects, reloadProjects } from "./config.js";
+import { config, projects, reloadProjects } from "./config.js";
 import {
     getFlaky,
     getProjectLastCheckedCommit,
@@ -150,7 +150,7 @@ export async function readFlakewatchResultsToDB(project: Project) {
         });
     }
 
-    if (flakyDetected && process.env.SAVE_FAILURES === "true") {
+    if (flakyDetected && config.saveImageOnFlaky) {
         // save the image
         await exec(
             `docker commit ${containerName} flakewatch-failure-${project.name}-${firstDetectTime}:latest`

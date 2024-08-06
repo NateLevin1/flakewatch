@@ -2,7 +2,7 @@ import fs from "fs";
 import type { Project } from "./shared.js";
 
 export let projects: Project[] = [];
-export let config = {} as { port: number };
+export let config = {} as { port: number; saveImageOnFlaky?: boolean };
 
 export function loadConfig() {
     config = JSON.parse(fs.readFileSync("./projects/_config.json").toString());
