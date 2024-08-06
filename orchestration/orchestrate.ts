@@ -12,9 +12,7 @@ import {
     getFlaky,
     getProjectLastCheckedCommit,
     insertFlaky,
-    markFlakyFixed,
     setProjectLastCheckedCommit,
-    updateFlakyCategory,
 } from "./db.js";
 
 export const exec = util.promisify(execC);
@@ -134,68 +132,25 @@ export async function readFlakewatchResultsToDB(project: Project) {
         (await fs.readFile(resultsPath)).toString()
     ) as FlakewatchResults;
 
-    let flakyFirstDetected = false;
+    let flakyDetected = false;
 
     for (const { testName, category, sha, module } of results.detections) {
-        const existing = getFlaky(testName);
-
         if (category) {
-            // add to DB
-            const insert = () => {
-                flakyFirstDetected = true;
-                console.log(
-                    project.name +
-                        ": " +
-                        testName +
-                        " is newly flaky: " +
-                        category
-                );
-                insertFlaky({
-                    projectURL: project.gitURL,
-                    firstDetectCommit: sha,
-                    firstDetectTime,
-                    modulePath: module,
-                    qualifiedTestName: testName,
-                    category,
-                });
-            };
-            if (existing) {
-                if (existing.category !== category) {
-                    if (existing.fixCommit) {
-                        insert();
-                    } else {
-                        console.log(
-                            project.name +
-                                ": " +
-                                testName +
-                                " still flakes: " +
-                                category +
-                                " (was " +
-                                existing.category +
-                                ")"
-                        );
-                        updateFlakyCategory(
-                            existing.ulid,
-                            existing.category ?? "",
-                            category
-                        );
-                    }
-                }
-            } else {
-                insert();
-            }
-        } else {
-            if (existing) {
-                console.log(
-                    project.name + ": " + testName + " is no longer flaky."
-                );
-                // we previously detected this test as flaky, but we no longer do
-                markFlakyFixed(sha, firstDetectTime, testName);
-            }
+            console.log(`${project.name}: ${testName} was flaky - ${category}`);
+            flakyDetected = true;
         }
+
+        insertFlaky({
+            projectURL: project.gitURL,
+            commitSha: sha,
+            detectTime: firstDetectTime,
+            modulePath: module,
+            qualifiedTestName: testName,
+            category: category ?? "",
+        });
     }
 
-    if (flakyFirstDetected && process.env.SAVE_FAILURES === "true") {
+    if (flakyDetected && process.env.SAVE_FAILURES === "true") {
         // save the image
         await exec(
             `docker commit ${containerName} flakewatch-failure-${project.name}-${firstDetectTime}:latest`
@@ -207,31 +162,13 @@ export async function readFlakewatchResultsToDB(project: Project) {
 
     for (const { testName, sha, module } of results.ciDetections) {
         console.log(project.name + ": " + testName + " was flaky in CI.");
-        const existing = getFlaky(testName);
-        const insert = () => {
-            insertFlaky({
-                projectURL: project.gitURL,
-                firstDetectCommit: sha,
-                firstDetectTime,
-                modulePath: module,
-                qualifiedTestName: testName,
-                category: "CI",
-            });
-        };
-        if (existing) {
-            if (existing.fixCommit) {
-                insert();
-            } else {
-                if (!existing.category || !existing.category.includes("CI")) {
-                    updateFlakyCategory(
-                        existing.ulid,
-                        existing.category ?? "",
-                        "CI"
-                    );
-                }
-            }
-        } else {
-            insert();
-        }
+        insertFlaky({
+            projectURL: project.gitURL,
+            commitSha: sha,
+            detectTime: firstDetectTime,
+            modulePath: module,
+            qualifiedTestName: testName,
+            category: "CI",
+        });
     }
 }

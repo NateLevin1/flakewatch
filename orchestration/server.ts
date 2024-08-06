@@ -1,11 +1,6 @@
 import express from "express";
 import { CronJob } from "cron";
-import {
-    getActiveFlakies,
-    toCsv,
-    setup as setupDB,
-    getAllFlakies,
-} from "./db.js";
+import { toCsv, setup as setupDB, getAllFlakies } from "./db.js";
 import { config, loadConfig, projects } from "./config.js";
 import { orchestrate } from "./orchestrate.js";
 
@@ -23,13 +18,7 @@ export function startServer() {
 
     const app = express();
 
-    app.get("/active.csv", (req, res) => {
-        res.type("text/csv");
-        res.status(200);
-        res.send(toCsv(getActiveFlakies));
-    });
-
-    app.get("/list.csv", (req, res) => {
+    app.get("/list.csv", (_req, res) => {
         res.type("text/csv");
         res.status(200);
         res.send(toCsv(getAllFlakies));
