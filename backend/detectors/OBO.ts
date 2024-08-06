@@ -15,22 +15,12 @@ export default async function detectOneByOne(
         pl,
         fullModulePath,
         className,
-        timeoutSecs,
     }: DetectorInfo,
     detectorRuns: DetectorRun[]
 ) {
-    const startTime = new Date();
-
     // run every test before qualifiedTestName
     for (const test of allTests) {
         if (test === qualifiedTestName) continue;
-
-        // check that we still have time
-        const elapsedSecs = (new Date().getTime() - startTime.getTime()) / 1000;
-        if (elapsedSecs > timeoutSecs) {
-            console.log(" ----- ran out of time (given " + timeoutSecs + "s)");
-            break;
-        }
 
         const { stdout: output } = await exec(
             `cd ${projectPath} && mvn test -Dmaven.ext.class.path="/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar" -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} -Dsurefire.rerunFailingTestsCount=${OBO_FAILURE_RERUN_COUNT} ${pl} -B`
