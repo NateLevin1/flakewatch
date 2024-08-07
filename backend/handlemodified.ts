@@ -1,16 +1,16 @@
 import { runDetectors } from "./detectors.js";
 import type { FlakewatchResults, ProjectInfo } from "./shared.js";
-import {
-    runModuleDetectors,
-    type ModuleCommitInfo,
-} from "./moduledetectors.js";
+import { runModuleDetectors, type ModuleInfo } from "./moduledetectors.js";
 import type { ModifiedTests } from "./flakewatch.js";
-import type { SimpleGit } from "simple-git";
+import { ResetMode, type SimpleGit } from "simple-git";
 import fs from "fs/promises";
+
+const MODULE_HOURS = 6;
+const TEST_HOURS = 18;
 
 export async function handleModifiedTests(
     modifiedTests: ModifiedTests,
-    sha: string,
+    latestSha: string,
     result: FlakewatchResults,
     project: ProjectInfo,
     git: SimpleGit
@@ -19,91 +19,88 @@ export async function handleModifiedTests(
     console.log(
         `${
             modifiedTests.length
-        } tests modified up to commit ${sha}: ${modifiedTests
+        } tests modified up to commit ${latestSha}: ${modifiedTests
             .map((s) => s.testName.split(".").at(-1))
             .join(", ")}`
     );
 
-    const moduleCommits: { module: string; commit: string }[] = [];
-    for (const { module, commit } of modifiedTests) {
-        if (
-            !moduleCommits.find(
-                ({ module: m, commit: c }) => m === module && c === commit
-            )
-        )
-            moduleCommits.push({ module, commit });
-    }
+    const modules = [...new Set(modifiedTests.map((t) => t.module))];
 
-    const minsAllowedPerModuleCommit =
-        project.debug?.minsAllowedPerModuleCommit ??
-        Math.floor((6 * 60) / moduleCommits.length);
+    const minsAllowedPerModule =
+        project.debug?.minsAllowedPerModule ??
+        Math.floor((MODULE_HOURS * 60) / modules.length);
     console.log(
-        `Found ${moduleCommits.length} module+commit combos. Spending ${minsAllowedPerModuleCommit} mins per combo.`
+        `Found ${modules.length} modules, spending ${minsAllowedPerModule} mins per module.`
     );
-    const moduleCommitInfos: ({
-        module: string;
-        commit: string;
-    } & ModuleCommitInfo)[] = [];
-    console.log("Getting module commit infos:");
-    for (const { module, commit } of moduleCommits) {
-        await git.reset(["--hard"]);
-        await git.checkout(commit);
-        console.log(` - getting mod "${module}" @ "${commit}"`);
-        const moduleCommitInfo = await runModuleDetectors({
+    const moduleInfos = new Map<string, ModuleInfo>();
+    const existingTests = new Set<string>();
+    console.log("Getting module infos:");
+
+    await git.clean("fd");
+    await git.reset(ResetMode.HARD);
+    await git.checkout(latestSha);
+
+    for (const module of modules) {
+        console.log(` - getting mod "${module}" @ "${latestSha}"`);
+        const moduleInfo = await runModuleDetectors({
             projectPath,
             module,
             project,
-            minsAllowed: minsAllowedPerModuleCommit,
+            minsAllowed: minsAllowedPerModule,
         });
-        moduleCommitInfos.push({
-            ...moduleCommitInfo,
-            module,
-            commit,
-        });
-        await git.reset(["--hard"]);
-        await git.checkout(project.branch);
+        for (const test of moduleInfo.allTests) {
+            existingTests.add(test);
+        }
+        moduleInfos.set(module, moduleInfo);
+        await git.clean("fd");
+        await git.reset(ResetMode.HARD);
     }
 
     // * Run flakiness detectors
+    const testsToRun = modifiedTests.filter((t) => {
+        const exists = existingTests.has(t.testName);
+        if (!exists) {
+            console.log(
+                ` - skipping "${t.testName}" because it wasn't found in latest sha (modified ${t.commit})`
+            );
+        }
+        return exists;
+    });
     const minsAllowedPerTest =
         project.debug?.minsAllowedPerTest ??
-        Math.floor((18 * 60) / modifiedTests.length);
+        Math.floor((TEST_HOURS * 60) / testsToRun.length);
     console.log(
         `Running test-specific flakiness detectors. Spending ${minsAllowedPerTest} mins per test.`
     );
-    for (const { testName, commit, module } of modifiedTests) {
-        const moduleCommitInfo = moduleCommitInfos.find(
-            ({ module: m, commit: c }) => m === module && c === commit
-        );
-        if (!moduleCommitInfo) {
+    for (const { testName, module, commit: lastEditSha } of testsToRun) {
+        const moduleInfo = moduleInfos.get(module);
+        if (!moduleInfo) {
             console.error(
-                "Failed to find module commit info for " +
+                "Failed to find module info for " +
                     module +
-                    " at " +
-                    commit +
                     ". Skipping test " +
                     testName +
                     "."
             );
             continue;
         }
-        await git.reset(["--hard"]);
-        await git.checkout(commit);
+
         try {
             const { category } = await runDetectors({
                 qualifiedTestName: testName,
                 projectPath,
                 module,
                 project,
-                moduleCommitInfo,
-                commitSha: commit,
+                moduleInfo,
+                commitSha: latestSha,
                 minsAllowed: minsAllowedPerTest,
             });
             result.detections.push({
                 testName,
                 category,
                 module,
-                sha: commit,
+                runSha: latestSha,
+                lastEditSha,
             });
         } catch (e) {
             console.error(
@@ -111,8 +108,9 @@ export async function handleModifiedTests(
             );
             console.error(e);
         }
-        await git.reset(["--hard"]);
-        await git.checkout(project.branch);
+
+        await git.clean("fd");
+        await git.reset(ResetMode.HARD);
     }
 }
 

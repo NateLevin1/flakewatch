@@ -1,5 +1,5 @@
 import type { FlakyCategory, ProjectInfo } from "./shared.js";
-import type { ModuleCommitInfo } from "./moduledetectors.js";
+import type { ModuleInfo } from "./moduledetectors.js";
 import {
     createTimeoutFunction,
     exec,
@@ -47,7 +47,7 @@ export async function runDetectors({
     projectPath,
     module,
     project,
-    moduleCommitInfo,
+    moduleInfo,
     commitSha,
     minsAllowed,
 }: {
@@ -55,7 +55,7 @@ export async function runDetectors({
     projectPath: string;
     module: string;
     project: ProjectInfo;
-    moduleCommitInfo: ModuleCommitInfo;
+    moduleInfo: ModuleInfo;
     commitSha: string;
     minsAllowed: number;
 }): Promise<{ category: FlakyCategory | undefined }> {
@@ -67,7 +67,7 @@ export async function runDetectors({
         projectPath,
         fullModulePath,
         module,
-        allTests: moduleCommitInfo.allTests,
+        allTests: moduleInfo.allTests,
         pl,
         className: qualifiedTestName.split("#")[0]!,
         timeoutSecs: 0,
@@ -82,7 +82,7 @@ export async function runDetectors({
     console.log(" - " + qualifiedTestName + " in " + fullModulePath);
 
     const detectorRuns: DetectorRun[] =
-        moduleCommitInfo.detectorRuns.get(qualifiedTestName) ?? [];
+        moduleInfo.detectorRuns.get(qualifiedTestName) ?? [];
 
     for (let i = 0; i < detectors.length; i++) {
         const detector = detectors[i]!;

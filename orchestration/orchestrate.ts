@@ -134,7 +134,13 @@ export async function readFlakewatchResultsToDB(project: Project) {
 
     let flakyDetected = false;
 
-    for (const { testName, category, sha, module } of results.detections) {
+    for (const {
+        testName,
+        category,
+        runSha,
+        lastEditSha,
+        module,
+    } of results.detections) {
         if (category) {
             console.log(`${project.name}: ${testName} was flaky - ${category}`);
             flakyDetected = true;
@@ -142,7 +148,8 @@ export async function readFlakewatchResultsToDB(project: Project) {
 
         insertFlaky({
             projectURL: project.gitURL,
-            commitSha: sha,
+            runSha,
+            lastEditSha,
             detectTime: firstDetectTime,
             modulePath: module,
             qualifiedTestName: testName,
@@ -164,7 +171,8 @@ export async function readFlakewatchResultsToDB(project: Project) {
         console.log(project.name + ": " + testName + " was flaky in CI.");
         insertFlaky({
             projectURL: project.gitURL,
-            commitSha: sha,
+            runSha: sha,
+            lastEditSha: "",
             detectTime: firstDetectTime,
             modulePath: module,
             qualifiedTestName: testName,

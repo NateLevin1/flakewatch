@@ -28,7 +28,7 @@ export async function cli(args: string[]) {
         debug: {
             keepContainerAlive: keepAliveIndex != -1,
             leaveContainers: true,
-            minsAllowedPerModuleCommit: process.env.MINS_PER_MODULE_COMMIT ?? 3,
+            minsAllowedPerModule: process.env.MINS_PER_MODULE ?? 3,
             minsAllowedPerTest: process.env.MINS_PER_TEST ?? 3,
         },
     };

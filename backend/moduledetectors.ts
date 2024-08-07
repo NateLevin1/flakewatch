@@ -10,7 +10,7 @@ import {
 
 type ModuleDetectorRuns = Map<string, DetectorRun[]>;
 
-export type ModuleCommitInfo = {
+export type ModuleInfo = {
     allTests: string[];
     detectorRuns: ModuleDetectorRuns;
 };
@@ -29,7 +29,7 @@ export async function runModuleDetectors({
     module: string;
     project: ProjectInfo;
     minsAllowed: number;
-}): Promise<ModuleCommitInfo> {
+}): Promise<ModuleInfo> {
     const startTime = Date.now();
 
     const fullModulePath = module ? projectPath + "/" + module : projectPath;
@@ -42,7 +42,7 @@ export async function runModuleDetectors({
     await exec(
         `cd ${projectPath} && mvn test ${pl} ${testArgs} -DskipITs -Dmaven.test.failure.ignore=true -DtestFailureIgnore=true`
     );
-    // modulePath/target/surefire-reports/TEST-*.xml has the test cases
+    // fullModulePath/target/surefire-reports/TEST-*.xml has the test cases
     const reportFiles = await fs.readdir(
         fullModulePath + "/target/surefire-reports"
     );

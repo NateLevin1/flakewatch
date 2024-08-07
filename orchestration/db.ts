@@ -4,7 +4,8 @@ import { ulid } from "ulid";
 export type Flaky = {
     ulid: string;
     projectURL: string;
-    commitSha: string;
+    runSha: string;
+    lastEditSha: string;
     detectTime: number;
     modulePath: string;
     qualifiedTestName: string;
@@ -17,7 +18,7 @@ export function setup() {
     db = new Database("flakewatch.db");
     db.pragma("journal_mode = WAL");
     db.prepare(
-        "CREATE TABLE IF NOT EXISTS flakies (ulid TEXT PRIMARY KEY, projectURL TEXT NOT NULL, commitSha TEXT NOT NULL, detectTime INTEGER NOT NULL, modulePath TEXT NOT NULL, qualifiedTestName TEXT NOT NULL, category TEXT)"
+        "CREATE TABLE IF NOT EXISTS flakies (ulid TEXT PRIMARY KEY, projectURL TEXT NOT NULL, runSha TEXT NOT NULL, lastEditSha TEXT NOT NULL, detectTime INTEGER NOT NULL, modulePath TEXT NOT NULL, qualifiedTestName TEXT NOT NULL, category TEXT)"
     ).run();
     db.prepare(
         "CREATE TABLE IF NOT EXISTS projects (name TEXT PRIMARY KEY, lastCheckedCommit TEXT)"
@@ -31,11 +32,11 @@ export function setup() {
 
 export function toCsv(fn: () => Flaky[]) {
     return (
-        "id,projectURL,commitSha,detectTime,modulePath,qualifiedTestName,category\n" +
+        "id,projectURL,runSha,lastEditSha,detectTime,modulePath,qualifiedTestName,category\n" +
         fn()
             .map(
                 (flaky) =>
-                    `${flaky.ulid},${flaky.projectURL},${flaky.commitSha},${flaky.detectTime},${flaky.modulePath},${flaky.qualifiedTestName},${flaky.category}`
+                    `${flaky.ulid},${flaky.projectURL},${flaky.runSha},${flaky.lastEditSha},${flaky.detectTime},${flaky.modulePath},${flaky.qualifiedTestName},${flaky.category}`
             )
             .join("\n")
     );
@@ -52,14 +53,16 @@ export function getAllFlakies() {
 
 export function insertFlaky({
     projectURL,
-    commitSha,
+    runSha,
+    lastEditSha,
     detectTime,
     modulePath,
     qualifiedTestName,
     category,
 }: {
     projectURL: string;
-    commitSha: string;
+    runSha: string;
+    lastEditSha: string;
     detectTime: number;
     modulePath: string;
     qualifiedTestName: string;
@@ -67,11 +70,12 @@ export function insertFlaky({
 }) {
     if (!db) return;
     db.prepare(
-        "INSERT INTO flakies (ulid, projectURL, commitSha, detectTime, modulePath, qualifiedTestName, category) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO flakies (ulid, projectURL, runSha, lastEditSha, detectTime, modulePath, qualifiedTestName, category) VALUES (?, ?, ?, ?, ?, ?, ?)"
     ).run(
         ulid(),
         projectURL,
-        commitSha,
+        runSha,
+        lastEditSha,
         detectTime,
         modulePath,
         qualifiedTestName,

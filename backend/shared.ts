@@ -5,7 +5,8 @@ export type FlakewatchResults = {
         testName: string;
         category?: FlakyCategory;
         module: string;
-        sha: string;
+        runSha: string;
+        lastEditSha: string;
     }[];
     ciDetections: { testName: string; sha: string; module: string }[];
 };
@@ -23,7 +24,7 @@ export type Project = {
     owner: string;
     repo: string;
     debug?: {
-        minsAllowedPerModuleCommit?: number;
+        minsAllowedPerModule?: number;
         minsAllowedPerTest?: number;
         leaveContainers?: boolean;
         keepContainerAlive?: boolean;
