@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import type { ProjectInfo } from "./shared.js";
-import { exec } from "./runutils.js";
+import { exec, writeDetectorError } from "./runutils.js";
 import {
     createTimeoutFunction,
     md5,
@@ -178,6 +178,18 @@ export async function detectIDFlakies(
                 );
                 const origin = result.stackTrace[originIndex]!;
                 const searchStr = origin.fileName + ":" + origin.lineNumber;
+                const occurrences = searchStr.split(searchStr).length - 1;
+                if (occurrences > 1) {
+                    // if there are multiple occurrences, we can't be sure which one is the right one
+                    const warning =
+                        "Warning: multiple occurrences of the same file and line number in the stack trace. Choosing the first one.";
+                    console.warn(warning);
+                    await writeDetectorError({
+                        message: warning,
+                        result,
+                        stdout: output,
+                    });
+                }
                 const filenameIndex = output.indexOf(searchStr);
                 // go back originIndex+1 lines to get the failure (+1 to get to the start of the line)
                 let index = filenameIndex;
