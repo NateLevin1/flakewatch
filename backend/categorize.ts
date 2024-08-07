@@ -24,14 +24,9 @@ export async function categorize({
         detectorRuns
             .map(({ test, passed, prefixMd5, tool, log, failure }) => {
                 const status = passed ? "pass" : "fail";
-                return [
-                    test,
-                    prefixMd5,
-                    tool,
-                    status,
-                    failure ? escape(failure) : "",
-                    log ? escape(log) : "",
-                ].join(",");
+                return `${test},${prefixMd5},${tool},${status},${
+                    failure ? escape(failure) : ""
+                },${log ? escape(log) : ""}`;
             })
             .join("\n");
     await fs.writeFile("/tmp/detectorRuns.csv", detectorRunsCsv);
