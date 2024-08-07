@@ -19,33 +19,37 @@ export const run = async (fn: () => Promise<void>) => {
         console.error("Error running detector.");
         console.error(e);
 
-        const zip = new AdmZip();
-        zip.addFile("error.json", Buffer.from(JSON.stringify(e, null, 2)));
-
-        if (typeof e.stdout === "string") {
-            console.error("\nStdout:");
-            console.error(e.stdout);
-            zip.addFile("stdout.log", Buffer.from(e.stdout));
-        }
-        if (typeof e.stderr === "string") {
-            console.error("\nStderr:");
-            console.error(e.stderr);
-            zip.addFile("stderr.log", Buffer.from(e.stderr));
-        }
-
-        const errorStr: string = "message" in e ? e.message : e.toString();
-        const shortErrorStr = errorStr
-            .slice(0, 64)
-            .match(/[a-zA-Z ]/g)
-            ?.join("")
-            ?.replaceAll(" ", "_");
-
-        const zipName = `${Date.now()}-${shortErrorStr ?? "error"}`;
-        await zip.writeZipPromise(
-            `/home/flakewatch/detector-errors/${zipName}.zip`
-        );
+        await writeDetectorError(e);
     }
 };
+
+export async function writeDetectorError(e: any) {
+    const zip = new AdmZip();
+    zip.addFile("error.json", Buffer.from(JSON.stringify(e, null, 2)));
+
+    if (typeof e.stdout === "string") {
+        console.error("\nStdout:");
+        console.error(e.stdout);
+        zip.addFile("stdout.log", Buffer.from(e.stdout));
+    }
+    if (typeof e.stderr === "string") {
+        console.error("\nStderr:");
+        console.error(e.stderr);
+        zip.addFile("stderr.log", Buffer.from(e.stderr));
+    }
+
+    const errorStr: string = "message" in e ? e.message : e.toString();
+    const shortErrorStr = errorStr
+        .slice(0, 64)
+        .match(/[a-zA-Z ]/g)
+        ?.join("")
+        ?.replaceAll(" ", "_");
+
+    const zipName = `${Date.now()}-${shortErrorStr ?? "error"}`;
+    await zip.writeZipPromise(
+        `/home/flakewatch/detector-errors/${zipName}.zip`
+    );
+}
 
 export const createTimeoutFunction = (
     minsAllowed: number,

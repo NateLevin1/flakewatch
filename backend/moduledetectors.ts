@@ -192,6 +192,12 @@ export async function detectIDFlakies(
             prefixStack.push(test);
         }
     }
+
+    await exec(
+        `cp -r ${fullModulePath}/.dtfixingtools /tmp/idflakies${
+            module ? "-" + module : ""
+        }`
+    );
 }
 
 function convertIdFlakiesTestName(testName: string) {

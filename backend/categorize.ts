@@ -1,5 +1,5 @@
 import AdmZip from "adm-zip";
-import { exec } from "./runutils.js";
+import { exec, writeDetectorError } from "./runutils.js";
 import fs from "fs/promises";
 import type { DetectorRun } from "./runutils.js";
 import type { FlakyCategory } from "./shared.js";
@@ -12,11 +12,13 @@ export async function categorize({
     detectorRuns,
     commitSha,
     fullModulePath,
+    module,
 }: {
     qualifiedTestName: string;
     detectorRuns: DetectorRun[];
     commitSha: string;
     fullModulePath: string;
+    module: string;
 }): Promise<FlakyCategory | undefined> {
     // if this file gets too large, we may want to write it gzipped
     const detectorRunsCsv =
@@ -37,16 +39,17 @@ export async function categorize({
 
     const category = JSON.parse(stdout.trim())[qualifiedTestName];
 
+    const zip = new AdmZip();
+    zip.addFile("detectorRuns.csv", Buffer.from(detectorRunsCsv));
+    await addLocalFolderToZip(
+        `/tmp/idflakies${module ? "-" + module : ""}`,
+        "idflakies",
+        zip
+    );
+
     if (category) {
         console.log("[!] " + qualifiedTestName + " is flaky: " + category);
 
-        const zip = new AdmZip();
-        zip.addFile("detectorRuns.csv", Buffer.from(detectorRunsCsv));
-        await addLocalFolderToZip(
-            fullModulePath + "/.dtfixingtools/",
-            "idflakies",
-            zip
-        );
         const tmpFiles = await fs.readdir("/tmp/", { withFileTypes: true });
         for (const file of tmpFiles) {
             if (file.isDirectory() && file.name.endsWith("-logs")) {
@@ -57,23 +60,37 @@ export async function categorize({
                 );
             }
         }
-        const hash = commitSha.slice(0, 7);
-        const testName = qualifiedTestName.replaceAll(".", "-");
-        const date = new Date().toISOString().slice(0, 10);
-        await zip.writeZipPromise(
-            `/home/flakewatch/failure-logs/${testName}-${date}-${hash}.zip`
-        );
     }
+
+    const hash = commitSha.slice(0, 7);
+    const testName = qualifiedTestName.replaceAll(".", "-");
+    const date = new Date().toISOString().slice(0, 10);
+    await zip.writeZipPromise(
+        `/home/flakewatch/run-logs/${testName}-${date}-${hash}.zip`
+    );
 
     return category || undefined;
 }
 
-function addLocalFolderToZip(localPath: string, folder: string, zip: AdmZip) {
-    return new Promise((res, rej) =>
-        zip.addLocalFolderAsync(
-            localPath,
-            (success, err) => (err ? rej(err) : res(success)),
-            "logs/" + folder + "/"
-        )
-    );
+async function addLocalFolderToZip(
+    localPath: string,
+    folder: string,
+    zip: AdmZip
+) {
+    try {
+        await new Promise((res, rej) =>
+            zip.addLocalFolderAsync(
+                localPath,
+                (success, err) => (err ? rej(err) : res(success)),
+                "logs/" + folder + "/"
+            )
+        );
+    } catch (e) {
+        console.error(
+            `Error adding local folder ${localPath} to zip folder ${folder}`
+        );
+        console.error(e);
+
+        await writeDetectorError(e);
+    }
 }

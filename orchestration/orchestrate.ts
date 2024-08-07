@@ -111,7 +111,7 @@ export async function readFlakewatchResultsToDB(project: Project) {
     const resultsPath = `./results/flakewatch-results-${project.name}.json`;
     await fs.mkdir("results", { recursive: true });
     await fs.mkdir("ci-logs/" + project.name, { recursive: true });
-    await fs.mkdir("failure-logs/" + project.name, { recursive: true });
+    await fs.mkdir("run-logs/" + project.name, { recursive: true });
     await fs.mkdir("detector-errors/" + project.name, { recursive: true });
 
     const containerName = `flakewatch-${project.name}`;
@@ -122,7 +122,7 @@ export async function readFlakewatchResultsToDB(project: Project) {
         `docker cp ${containerName}:/home/flakewatch/ci-logs/. ./ci-logs/${project.name}/`
     );
     await exec(
-        `docker cp ${containerName}:/home/flakewatch/failure-logs/. ./failure-logs/${project.name}/`
+        `docker cp ${containerName}:/home/flakewatch/run-logs/. ./run-logs/${project.name}/`
     );
     await exec(
         `docker cp ${containerName}:/home/flakewatch/detector-errors/. ./detector-errors/${project.name}/`

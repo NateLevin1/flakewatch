@@ -101,6 +101,7 @@ export async function runDetectors({
         detectorRuns,
         commitSha,
         fullModulePath,
+        module,
     });
 
     // cleanup
