@@ -84,6 +84,7 @@ export async function runModuleDetectors({
                 fullModulePath,
                 timeoutSecs: getTimeout(0),
                 minDetectorSecs: MIN_DETECTOR_SEC,
+                module,
             },
             detectorRuns
         )
@@ -98,7 +99,13 @@ export async function detectIDFlakies(
         fullModulePath,
         timeoutSecs,
         minDetectorSecs,
-    }: { fullModulePath: string; timeoutSecs: number; minDetectorSecs: number },
+        module,
+    }: {
+        fullModulePath: string;
+        timeoutSecs: number;
+        minDetectorSecs: number;
+        module: string;
+    },
     detectorRuns: ModuleDetectorRuns
 ): Promise<void> {
     const startTime = Date.now();
