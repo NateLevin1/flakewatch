@@ -70,7 +70,7 @@ export function insertFlaky({
 }) {
     if (!db) return;
     db.prepare(
-        "INSERT INTO flakies (ulid, projectURL, runSha, lastEditSha, detectTime, modulePath, qualifiedTestName, category) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO flakies (ulid, projectURL, runSha, lastEditSha, detectTime, modulePath, qualifiedTestName, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     ).run(
         ulid(),
         projectURL,
