@@ -51,5 +51,8 @@ export async function cli(args: string[]) {
     await exec(
         `docker run --name='${containerName}' -i flakewatch:base ${cmd}`
     );
-    await readFlakewatchResultsToDB(project as unknown as ProjectInfo);
+    await readFlakewatchResultsToDB(
+        project as unknown as ProjectInfo,
+        containerName
+    );
 }

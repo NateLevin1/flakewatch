@@ -80,10 +80,11 @@ async function orchestrateProject(project: Project) {
         if (updateResults.shouldRunFlakewatch) {
             const startCmd = `/bin/bash -c "cd /home/flakewatch/flakewatch/backend && rm -f /home/flakewatch/flakewatch-results.json && rm -rf /home/flakewatch/ci-logs && npm run flakewatch -- '${passedInInfo}'"`;
             // NOTE: we expect the below line could take hours
+            const containerName = `flakewatch-${project.name}`;
             await exec(
-                `docker run --name='flakewatch-${project.name}' -i ${projectImageName} ${startCmd}`
+                `docker run --name='${containerName}' -i ${projectImageName} ${startCmd}`
             );
-            await readFlakewatchResultsToDB(project);
+            await readFlakewatchResultsToDB(project, containerName);
         }
         if (updateResults.newLastCheckedCommit) {
             setProjectLastCheckedCommit(
@@ -105,7 +106,10 @@ async function orchestrateProject(project: Project) {
     }
 }
 
-export async function readFlakewatchResultsToDB(project: Project) {
+export async function readFlakewatchResultsToDB(
+    project: Project,
+    containerName: string
+) {
     const firstDetectTime = Date.now();
 
     const resultsPath = `./results/flakewatch-results-${project.name}.json`;
@@ -114,7 +118,6 @@ export async function readFlakewatchResultsToDB(project: Project) {
     await fs.mkdir("run-logs/" + project.name, { recursive: true });
     await fs.mkdir("detector-errors/" + project.name, { recursive: true });
 
-    const containerName = `flakewatch-${project.name}`;
     await exec(
         `docker cp ${containerName}:/home/flakewatch/flakewatch-results.json ${resultsPath}`
     );
