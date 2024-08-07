@@ -17,25 +17,31 @@ export default async function detectIsolation(
     }: DetectorInfo,
     detectorRuns: DetectorRun[]
 ) {
-    const reruns = 99; // TODO: can we vary if this is a long-running test?
+    // * ### Step 1: Run the test 100 times using the Surefire plugin
+    const reruns = 99; // FIXME: can we vary if this is a long-running test?
     const { stdout: output } = await exec(
         `cd ${projectPath} && mvn test -Dmaven.ext.class.path="/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar" -Dsurefire.runOrder=testorder -Dtest=${qualifiedTestName} -Dsurefire.rerunTestsCount=${reruns} ${pl} -B`
     );
 
+    // * ### Step 2: Read the test results
     const reportPath = `${fullModulePath}/target/surefire-reports/TEST-${className}.xml`;
     const testXml = await fs.readFile(reportPath, "utf-8");
 
+    // * ### Step 3: Save the logs. Note that /tmp/*-logs will be included in failure logs, and will all be auto-deleted after each test
     await exec(
         `mkdir -p /tmp/isolation-logs && cp ${reportPath} /tmp/isolation-logs/report.xml`
     );
     await fs.writeFile("/tmp/isolation-logs/output.log", output);
 
+    // * ### Step 4: Parse the test results
     const flakyFailures = toArray(
         xmlParser.parse(testXml).testclass.testcase.flakyFailure as
             | StackTraceObj
             | StackTraceObj[]
             | undefined
     );
+
+    // * ### Step 5: Save the detector runs, depending on pass/fail status
 
     const pushPass = () => {
         detectorRuns.push({

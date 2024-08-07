@@ -53,7 +53,9 @@ To configure other aspects of the server, edit the `orchestration/projects/_conf
 
 ## Adding A New Test-Level Detector
 
-To add a new detector, create a new TypeScript file in the `backend/detectors` directory. The file should default export a function that takes a `DetectorInfo` and a `DetectorRun[]`. To register a detection, simply `push` to the detector run array provided. Take a look at the existing detectors for examples.
+To add a new detector, create a new TypeScript file in the `backend/detectors` directory. The file should default export a function that takes a `DetectorInfo` and a `DetectorRun[]`. To register a detection, simply `push` to the detector run array provided.
+
+A well-commented example of a detector can be found in the [`Isolation.tsx`](https://github.com/NateLevin1/flakewatch/blob/main/backend/detectors/Isolation.ts) file.
 
 Some error handling is done for you — if an error is thrown, the rest of your detector will be skipped and the error will be logged.
 
@@ -66,17 +68,7 @@ export default async function detectSomething(
     detectorInfo: DetectorInfo,
     detectorRuns: DetectorRun[]
 ) {
-    // Do some detection
-    const passed = ...;
-
-    detectorRuns.push({
-        test: detectorInfo.qualifiedTestName,
-        prefixMd5: "",
-        tool: "Something",
-        passed: passed,
-        failure: undefined,
-        log: undefined,
-    });
+    // ...
 }
 ```
 
@@ -103,7 +95,7 @@ Each detector run must match the following type:
     prefixMd5: string; // provide empty string if no prefix
     tool: string; // the name of the detector (should match filename)
     passed: boolean;
-    failure: string | undefined; // provide undefined if no failure
+    failure: string | undefined; // make sure to md5 hash, provide undefined if no failure,
     log: string | undefined; // any extra logs associated with this individual run. should be somewhat short
 }
 ```
