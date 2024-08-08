@@ -37,7 +37,13 @@ async function orchestrateProject(project: Project) {
         githubToken: process.env.GITHUB_TOKEN!,
     } satisfies ProjectInfo).replaceAll('"', '\\"');
 
+    const updateContainerName = `flakewatch-update-${project.name}`;
+    const containerName = `flakewatch-${project.name}`;
     const projectImageName = `flakewatch-${project.name}:latest`;
+
+    console.log(
+        `${project.name}: updating. follow with: docker logs -f ${updateContainerName}`
+    );
 
     let imageExists = false;
     try {
@@ -51,7 +57,6 @@ async function orchestrateProject(project: Project) {
         console.log(project.name + ": creating initial project image");
 
     const imageName = imageExists ? projectImageName : "flakewatch:base";
-    const updateContainerName = `flakewatch-update-${project.name}`;
     const updateCmd = `/bin/bash -c "cd /home/flakewatch/flakewatch/backend && git pull && npm install && npm run build && npm run update -- '${passedInInfo}'"`;
     try {
         await exec(
@@ -77,13 +82,17 @@ async function orchestrateProject(project: Project) {
         await exec(`docker commit ${updateContainerName} ${projectImageName}`);
         await exec(`docker rm ${updateContainerName}`);
         if (updateResults.shouldRunFlakewatch) {
+            console.log(
+                `${project.name}: flakewatching. follow with: docker logs -f ${containerName}`
+            );
             const startCmd = `/bin/bash -c "cd /home/flakewatch/flakewatch/backend && rm -f /home/flakewatch/flakewatch-results.json && rm -rf /home/flakewatch/ci-logs && npm run flakewatch -- '${passedInInfo}'"`;
             // NOTE: we expect the below line could take hours
-            const containerName = `flakewatch-${project.name}`;
             await exec(
                 `docker run --name='${containerName}' -i ${projectImageName} ${startCmd}`
             );
             await readFlakewatchResultsToDB(project, containerName);
+        } else {
+            console.log(`${project.name}: no updates.`);
         }
         if (updateResults.newLastCheckedCommit) {
             setProjectLastCheckedCommit(
@@ -100,7 +109,7 @@ async function orchestrateProject(project: Project) {
             await exec(`docker rm ${updateContainerName}`);
         } catch (e) {}
         try {
-            await exec(`docker rm flakewatch-${project.name}`);
+            await exec(`docker rm ${containerName}`);
         } catch (e) {}
     }
 }
