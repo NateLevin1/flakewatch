@@ -45,15 +45,17 @@ export default async function detectNonDex(
         for (const file of orderedFiles) {
             if (file.isDirectory()) {
                 if (file.name.startsWith("clean_")) {
-                    const failuresFile = await fs.readFile(
-                        `${nondexDir}/${file.name}/failures`,
-                        "utf-8"
-                    );
-                    if (failuresFile.length > 0) {
-                        // NonDex is in "brittle" mode. It will invert the `failures` file
-                        // meaning, it will have len > 0 only if the test passes
-                        isBrittleMode = true;
-                    }
+                    try {
+                        const failuresFile = await fs.readFile(
+                            `${nondexDir}/${file.name}/failures`,
+                            "utf-8"
+                        );
+                        if (failuresFile.length > 0) {
+                            // NonDex is in "brittle" mode. It will invert the `failures` file
+                            // meaning, it will have len > 0 only if the test passes
+                            isBrittleMode = true;
+                        }
+                    } catch (ignored) {} // if passed, there is no failures file
                     continue;
                 }
 
