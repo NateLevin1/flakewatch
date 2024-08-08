@@ -1,7 +1,7 @@
 import AdmZip from "adm-zip";
 import { exec, writeDetectorError } from "./runutils.js";
 import fs from "fs/promises";
-import type { DetectorRun } from "./runutils.js";
+import type { DetectorRun, ToolTimings } from "./runutils.js";
 import type { FlakyCategory } from "./shared.js";
 
 const escape = (str: string) =>
@@ -12,12 +12,14 @@ export async function categorize({
     detectorRuns,
     commitSha,
     fullModulePath,
+    toolTimings,
     module,
 }: {
     qualifiedTestName: string;
     detectorRuns: DetectorRun[];
     commitSha: string;
     fullModulePath: string;
+    toolTimings: ToolTimings;
     module: string;
 }): Promise<FlakyCategory | undefined> {
     // if this file gets too large, we may want to write it gzipped
@@ -41,6 +43,10 @@ export async function categorize({
 
     const zip = new AdmZip();
     zip.addFile("detectorRuns.csv", Buffer.from(detectorRunsCsv));
+    zip.addFile(
+        "toolTimings.json",
+        Buffer.from(JSON.stringify(toolTimings, null, 2))
+    );
     await addLocalFolderToZip(
         `/tmp/idflakies${module ? "-" + module : ""}`,
         "idflakies",

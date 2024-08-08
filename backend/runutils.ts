@@ -12,6 +12,12 @@ export type DetectorRun = {
     log: string | undefined;
 };
 
+export type ToolTimings = {
+    _minsAllowed: { module: number; test: number };
+} & {
+    [tool: string]: number;
+};
+
 export const run = async (fn: () => Promise<void>) => {
     try {
         return await fn();

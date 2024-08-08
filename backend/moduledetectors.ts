@@ -1,6 +1,11 @@
 import fs from "fs/promises";
 import type { ProjectInfo } from "./shared.js";
-import { exec, toArray, writeDetectorError } from "./runutils.js";
+import {
+    exec,
+    toArray,
+    writeDetectorError,
+    type ToolTimings,
+} from "./runutils.js";
 import {
     createTimeoutFunction,
     md5,
@@ -14,6 +19,7 @@ type ModuleDetectorRuns = Map<string, DetectorRun[]>;
 export type ModuleInfo = {
     allTests: string[];
     detectorRuns: ModuleDetectorRuns;
+    toolTimings: ToolTimings;
 };
 
 const NUM_MODULE_DETECTORS = 1;
@@ -38,6 +44,8 @@ export async function runModuleDetectors({
     const fullModulePath = module ? projectPath + "/" + module : projectPath;
     const testArgs = project.mvnTestArgs ?? "";
     const pl = module ? `-pl ${module}` : "";
+    const toolTimings: ToolTimings = {} as any;
+    toolTimings._minsAllowed = { module: minsAllowed, test: 0 };
 
     console.log("Running module detectors for " + fullModulePath);
     // we run `mvn test` and parse its output to get the list of all tests
@@ -69,6 +77,7 @@ export async function runModuleDetectors({
     }
     const allTests = (await Promise.all(allTestsPromises)).flat();
     console.log(" - found " + allTests.length + ' tests in "' + module + '"');
+    toolTimings["TestFinder"] = Date.now() - startTime;
 
     const detectorMinsAllowed =
         (minsAllowed * 60 * 1000 - (Date.now() - startTime)) / 1000 / 60;
@@ -80,6 +89,7 @@ export async function runModuleDetectors({
 
     const detectorRuns = new Map() as ModuleDetectorRuns;
 
+    const iDFlakiesStartTime = Date.now();
     await run(() =>
         detectIDFlakies(
             {
@@ -91,9 +101,10 @@ export async function runModuleDetectors({
             detectorRuns
         )
     );
+    toolTimings["iDFlakies"] = Date.now() - iDFlakiesStartTime;
     console.log(" - finished iDFlakies");
 
-    return { allTests, detectorRuns };
+    return { allTests, detectorRuns, toolTimings };
 }
 
 export async function detectIDFlakies(

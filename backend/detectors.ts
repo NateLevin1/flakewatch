@@ -5,6 +5,7 @@ import {
     exec,
     run,
     type DetectorRun as DetectorRun,
+    type ToolTimings,
 } from "./runutils.js";
 import fs from "fs/promises";
 import { categorize } from "./categorize.js";
@@ -93,16 +94,20 @@ export async function runDetectors({
 
     const detectorRuns: DetectorRun[] =
         moduleInfo.detectorRuns.get(qualifiedTestName) ?? [];
+    const toolTimings: ToolTimings = { ...moduleInfo.toolTimings };
+    toolTimings._minsAllowed.test = minsAllowed;
 
     for (let i = 0; i < detectors.length; i++) {
         const detector = detectors[i]!;
         console.log(" --- Running " + detector.name);
+        const startTime = Date.now();
         await run(() =>
             detector.run(
                 { ...detectorInfo, timeoutSecs: getTimeout(i) },
                 detectorRuns
             )
         );
+        toolTimings[detector.name] = Date.now() - startTime;
         console.log(" --- Finished " + detector.name);
     }
 
@@ -112,6 +117,7 @@ export async function runDetectors({
         commitSha,
         fullModulePath,
         module,
+        toolTimings,
     });
 
     // cleanup
