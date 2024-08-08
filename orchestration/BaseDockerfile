@@ -22,9 +22,8 @@ RUN \
   n lts && \
 # Install Python
   apt-get update && \
-  apt-get install -y python3 python3-pip && \
-  pip3 install --upgrade pip
-
+  apt-get install -y python3
+  
 # Set up user (flakewatch)
 RUN useradd -ms /bin/bash -c "flakewatch" flakewatch && echo "flakewatch:docker" | chpasswd && adduser flakewatch sudo
 USER flakewatch
