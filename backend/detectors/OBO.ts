@@ -1,4 +1,4 @@
-import type { DetectorInfo, StackTraceObj } from "../detectors.js";
+import type { DetectorInfo, TestCaseType } from "../detectors.js";
 import { exec, md5, toArray, type DetectorRun } from "../runutils.js";
 import fs from "fs/promises";
 import { XMLParser } from "fast-xml-parser";
@@ -37,15 +37,6 @@ export default async function detectOneByOne(
         );
         await fs.writeFile(`/tmp/obo-logs/${cleanTest}-output.log`, output);
 
-        type TestCaseType =
-            | {
-                  failure: string;
-                  rerunFailure: StackTraceObj | StackTraceObj[] | undefined;
-              }
-            | {
-                  flakyFailure: StackTraceObj | StackTraceObj[];
-              }
-            | "";
         const testcase = toArray(
             (xmlParser.parse(testXml).testclass.testcase as
                 | TestCaseType

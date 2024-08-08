@@ -1,4 +1,8 @@
-import type { DetectorInfo, StackTraceObj } from "../detectors.js";
+import type {
+    DetectorInfo,
+    StackTraceObj,
+    TestCaseType,
+} from "../detectors.js";
 import { exec, md5, toArray, type DetectorRun } from "../runutils.js";
 import fs from "fs/promises";
 import { XMLParser } from "fast-xml-parser";
@@ -34,12 +38,9 @@ export default async function detectIsolation(
     await fs.writeFile("/tmp/isolation-logs/output.log", output);
 
     // * ### Step 4: Parse the test results
-    const flakyFailures = toArray(
-        xmlParser.parse(testXml).testclass.testcase.flakyFailure as
-            | StackTraceObj
-            | StackTraceObj[]
-            | undefined
-    );
+    const testCase =
+        (xmlParser.parse(testXml).testclass.testcase as TestCaseType) ||
+        undefined;
 
     // * ### Step 5: Save the detector runs, depending on pass/fail status
 
@@ -54,13 +55,22 @@ export default async function detectIsolation(
         });
     };
 
-    if (flakyFailures) {
+    if (testCase) {
+        let failures: StackTraceObj[] = [];
+        if ("flakyFailure" in testCase) {
+            failures = toArray(testCase.flakyFailure)!;
+        } else {
+            failures = [
+                { stackTrace: testCase.failure },
+                ...(toArray(testCase.rerunFailure) || []),
+            ];
+        }
         const runs = output.match(runRegex)!;
         let failureIndex = 0;
         for (const run of runs) {
             if (run[0] === "R") {
                 // ERRO(R)
-                const { stackTrace } = flakyFailures[failureIndex]!;
+                const { stackTrace } = failures[failureIndex]!;
                 detectorRuns.push({
                     passed: false,
                     prefixMd5: "",

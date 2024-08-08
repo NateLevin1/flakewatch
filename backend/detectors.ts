@@ -20,6 +20,16 @@ export type DetectorInfo = {
     timeoutSecs: number;
 };
 
+export type TestCaseType =
+    | {
+          failure: string;
+          rerunFailure: StackTraceObj | StackTraceObj[] | undefined;
+      }
+    | {
+          flakyFailure: StackTraceObj | StackTraceObj[];
+      }
+    | "";
+
 export type StackTraceObj = { stackTrace: string };
 
 const MIN_DETECTOR_SEC = 30;
