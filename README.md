@@ -7,7 +7,15 @@ Live tracking of flaky tests in large public repositories.
 Ensure that you have Docker, NodeJS, and NPM installed. Then, run:
 
 ```bash
-cd orchestration && npm install
+cd orchestration && npm install && npm run build
+```
+
+This command will build the base docker container and start the server. Expect this to take 20 minutes or more the first time you run it.
+
+If your CPU is not amd64, you will need to provide the architecture as an argument to the build command. E.g., for an Apple Silicon Mac:
+
+```bash
+npm run build -- --build-arg='ARCHITECTURE=arm64'
 ```
 
 ## Running the server
@@ -16,9 +24,7 @@ cd orchestration && npm install
 cd orchestration && npm start
 ```
 
-This command will build the base docker container and start the server. Expect this to take 20 minutes or more the first time you run it.
-
-Once the server has started, you can navigate to http://localhost:8080/list.csv in your browser at any time to download the live list of flaky tests. Every midnight, the server will automatically run detectors on projects that have changed and update the list.
+Once the server has started, you can navigate to http://localhost:8080/list.csv in a browser at any time to download the live list of flaky tests. Every midnight, the server will automatically run detectors on projects that have changed and update the list.
 
 ## Running Detectors for a Single Project/Test
 
