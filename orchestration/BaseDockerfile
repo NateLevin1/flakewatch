@@ -23,17 +23,17 @@ RUN \
 # Install Python
   apt-get update && \
   apt-get install -y python3
-  
+
 # Set up user (flakewatch)
 RUN useradd -ms /bin/bash -c "flakewatch" flakewatch && echo "flakewatch:docker" | chpasswd && adduser flakewatch sudo
 USER flakewatch
 
 WORKDIR /home/flakewatch/
 
-# Install Maven 3.5.4 locally for user
+# Install Maven 3.9.8 locally for user
 RUN \
-  wget https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.5.4/apache-maven-3.5.4-bin.tar.gz && \
-  tar -xzf apache-maven-3.5.4-bin.tar.gz && mv apache-maven-3.5.4/ apache-maven/
+  wget https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.8/apache-maven-3.9.8-bin.tar.gz && \
+  tar -xzf apache-maven-3.9.8-bin.tar.gz && mv apache-maven-3.9.8/ apache-maven/
 
 ARG ARCHITECTURE=amd64
 ENV ARCH=${ARCHITECTURE}
