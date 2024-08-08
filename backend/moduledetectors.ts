@@ -48,34 +48,19 @@ export async function runModuleDetectors({
     toolTimings._minsAllowed = { module: minsAllowed, test: 0 };
 
     console.log("Running module detectors for " + fullModulePath);
-    // we run `mvn test` and parse its output to get the list of all tests
-    await exec(`cd ${fullModulePath} && rm -rf target/surefire-reports`);
-    await exec(
-        `cd ${projectPath} && mvn test ${pl} ${testArgs} -DskipITs -Dmaven.test.failure.ignore=true -DtestFailureIgnore=true`
-    );
-    // fullModulePath/target/surefire-reports/TEST-*.xml has the test cases
-    const reportFiles = await fs.readdir(
-        fullModulePath + "/target/surefire-reports"
-    );
-    const allTestsPromises = [] as Promise<string[]>[];
-    for (const file of reportFiles) {
-        if (!file.startsWith("TEST") || file.includes("ALLCLASS")) continue;
-        allTestsPromises.push(
-            new Promise(async (resolve) => {
-                const content = await fs.readFile(
-                    fullModulePath + "/target/surefire-reports/" + file,
-                    "utf-8"
-                );
-                const result = toArray(
-                    xmlParser.parse(content).testsuite.testcase
-                )!.map(
-                    (test) => test["@_classname"] + "#" + test["@_name"]
-                ) as string[];
-                resolve(result);
-            })
-        );
+    let allTests: string[] | undefined = undefined;
+    await run(async () => {
+        allTests = await getAllTests({
+            fullModulePath,
+            projectPath,
+            pl,
+            testArgs,
+        });
+    });
+    if (!allTests) {
+        console.error(" - error: failed to get tests.");
+        allTests = [];
     }
-    const allTests = (await Promise.all(allTestsPromises)).flat();
     console.log(" - found " + allTests.length + ' tests in "' + module + '"');
     toolTimings["TestFinder"] = Date.now() - startTime;
 
@@ -105,6 +90,48 @@ export async function runModuleDetectors({
     console.log(" - finished iDFlakies");
 
     return { allTests, detectorRuns, toolTimings };
+}
+
+async function getAllTests({
+    fullModulePath,
+    projectPath,
+    pl,
+    testArgs,
+}: {
+    fullModulePath: string;
+    projectPath: string;
+    pl: string;
+    testArgs: string;
+}) {
+    // we run `mvn test` and parse its output to get the list of all tests
+    await exec(`cd ${fullModulePath} && rm -rf target/surefire-reports`);
+    await exec(
+        `cd ${projectPath} && mvn test ${pl} ${testArgs} -DskipITs -Dmaven.test.failure.ignore=true -DtestFailureIgnore=true`
+    );
+    // fullModulePath/target/surefire-reports/TEST-*.xml has the test cases
+    const reportFiles = await fs.readdir(
+        fullModulePath + "/target/surefire-reports"
+    );
+    const allTestsPromises = [] as Promise<string[]>[];
+    for (const file of reportFiles) {
+        if (!file.startsWith("TEST") || file.includes("ALLCLASS")) continue;
+        allTestsPromises.push(
+            new Promise(async (resolve) => {
+                const content = await fs.readFile(
+                    fullModulePath + "/target/surefire-reports/" + file,
+                    "utf-8"
+                );
+                const result = toArray(
+                    xmlParser.parse(content).testsuite.testcase
+                )!.map(
+                    (test) => test["@_classname"] + "#" + test["@_name"]
+                ) as string[];
+                resolve(result);
+            })
+        );
+    }
+    const allTests = (await Promise.all(allTestsPromises)).flat();
+    return allTests;
 }
 
 export async function detectIDFlakies(

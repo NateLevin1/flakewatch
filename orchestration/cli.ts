@@ -23,7 +23,7 @@ export async function cli(args: string[]) {
 
     const moduleText = module ? "in module " + module : "";
     console.log(
-        `Running detectors for project '${gitURL}' @ '${commit}'\n -> checking ${test} ${moduleText}\n`
+        `Running detectors for project '${gitURL}' @ '${commit}'\n -> checking ${test} ${moduleText}`
     );
     if (keepAliveIndex != -1)
         console.log(
@@ -50,7 +50,7 @@ export async function cli(args: string[]) {
     }-${commit.slice(0, 7)}`;
     await exec(`docker rm -f ${containerName}`);
 
-    console.log("COMMANDS:");
+    console.log("\nCOMMANDS:");
     console.log(" - Follow the container's logs:");
     console.log(`    $ docker logs -f ${containerName}`);
     console.log(" - Stop the container:");
