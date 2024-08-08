@@ -52,9 +52,11 @@ export async function cli(args: string[]) {
 
     console.log("COMMANDS:");
     console.log(" - Follow the container's logs:");
-    console.log(`   $ docker logs -f ${containerName}`);
+    console.log(`    $ docker logs -f ${containerName}`);
     console.log(" - Stop the container:");
-    console.log(`   $ docker rm ${containerName}`);
+    console.log(`    $ docker stop ${containerName}`);
+    console.log(" - Force-kill the container:");
+    console.log(`    $ docker rm -f ${containerName}`);
     console.log("");
 
     const cloneCmd = `cd /home/flakewatch/clone/ && git clone ${gitURL} ${name} && cd ${name} && git checkout ${commit}`;
