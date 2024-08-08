@@ -1,12 +1,13 @@
 import fs from "fs/promises";
 import type { ProjectInfo } from "./shared.js";
-import { exec, writeDetectorError } from "./runutils.js";
+import { exec, toArray, writeDetectorError } from "./runutils.js";
 import {
     createTimeoutFunction,
     md5,
     run,
     type DetectorRun,
 } from "./runutils.js";
+import { XMLParser } from "fast-xml-parser";
 
 type ModuleDetectorRuns = Map<string, DetectorRun[]>;
 
@@ -17,6 +18,8 @@ export type ModuleInfo = {
 
 const NUM_MODULE_DETECTORS = 1;
 const MIN_DETECTOR_SEC = 60;
+
+const xmlParser = new XMLParser({ ignoreAttributes: false });
 
 // detectors that work per-module, not per-test
 export async function runModuleDetectors({
@@ -55,12 +58,11 @@ export async function runModuleDetectors({
                     fullModulePath + "/target/surefire-reports/" + file,
                     "utf-8"
                 );
-                const className = file.slice(5, -4);
-                const tests = content.matchAll(/<testcase name="([^"]+)"/g);
-                const result = [];
-                for (const test of tests) {
-                    if (test[1]) result.push(className + "#" + test[1]);
-                }
+                const result = toArray(
+                    xmlParser.parse(content).testsuite.testcase
+                )!.map(
+                    (test) => test["@_classname"] + "#" + test["@_name"]
+                ) as string[];
                 resolve(result);
             })
         );
