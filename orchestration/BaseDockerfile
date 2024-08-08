@@ -13,17 +13,17 @@ RUN \
   git --version && \
 # Install misc
   apt-get update && \
-  apt-get install -y sudo && \
-  apt-get install -y vim && \
-  apt-get install -y wget && \
-  apt-get install -y curl && \
-  apt-get install -y zip && \
+  apt-get install -y sudo vim wget curl zip && \
 # Install NodeJS
   apt-get update && \
-  apt-get install -y npm software-properties-common && \
+  apt-get install -y npm && \
   npm install npm@latest -g && \
   npm install n -g && \
-  n lts
+  n lts && \
+# Install Python
+  apt-get update && \
+  apt-get install -y python3 python3-pip && \
+  pip3 install --upgrade pip
 
 # Set up user (flakewatch)
 RUN useradd -ms /bin/bash -c "flakewatch" flakewatch && echo "flakewatch:docker" | chpasswd && adduser flakewatch sudo
@@ -62,9 +62,5 @@ RUN git clone 'https://github.com/NateLevin1/flakewatch.git' && \
 
 RUN mkdir -p /home/flakewatch/clone /home/flakewatch/ci-logs /home/flakewatch/run-logs /home/flakewatch/detector-errors
 
-# TODO: move this up
-USER root
-RUN apt-get install -y python3
 COPY toolCachePom.xml /home/flakewatch/toolCachePom.xml
 RUN mvn -f /home/flakewatch/toolCachePom.xml dependency:go-offline
-USER flakewatch
