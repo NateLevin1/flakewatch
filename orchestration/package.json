@@ -4,8 +4,8 @@
     "main": "index.js",
     "type": "module",
     "scripts": {
-        "build": "tsc && docker build -t flakewatch:base -f BaseDockerfile .",
-        "start": "node dist/index.js",
+        "build": "docker build -t flakewatch:base -f BaseDockerfile .",
+        "start": "tsc && node dist/index.js",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "author": "UltimateProGrammer",
