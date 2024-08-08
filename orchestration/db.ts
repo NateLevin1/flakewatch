@@ -14,7 +14,7 @@ export type Flaky = {
 
 let db: Database.Database | undefined = undefined;
 
-export function setup() {
+export function setupDB() {
     db = new Database("flakewatch.db");
     db.pragma("journal_mode = WAL");
     db.prepare(
