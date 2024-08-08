@@ -9,7 +9,6 @@ import type {
 } from "./shared.js";
 import { config, projects, reloadProjects } from "./config.js";
 import {
-    getFlaky,
     getProjectLastCheckedCommit,
     insertFlaky,
     setProjectLastCheckedCommit,
@@ -34,7 +33,7 @@ export async function orchestrate() {
 async function orchestrateProject(project: Project) {
     const passedInInfo = JSON.stringify({
         ...project,
-        lastCheckedCommit: "1fb14a8deddd6b9a0a40c9ea49e0c95b1ca18078", //getProjectLastCheckedCommit(project.name),
+        lastCheckedCommit: getProjectLastCheckedCommit(project.name),
         githubToken: process.env.GITHUB_TOKEN!,
     } satisfies ProjectInfo).replaceAll('"', '\\"');
 
