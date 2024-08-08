@@ -21,8 +21,14 @@ export async function cli(args: string[]) {
 
     gitURL = gitURL.replace(".git", "").replace(/\/$/, "");
 
-    console.log("Running detectors for", gitURL, commit, test, module);
-    if (keepAliveIndex != -1) console.log("- keeping container alive");
+    const moduleText = module ? "in module " + module : "";
+    console.log(
+        `Running detectors for project '${gitURL}' @ '${commit}'\n -> checking ${test} ${moduleText}\n`
+    );
+    if (keepAliveIndex != -1)
+        console.log(
+            " -> warning: keeping container alive, this process will not exit"
+        );
 
     const name = gitURL.split("/").at(-1)!;
     const project = {
@@ -44,6 +50,13 @@ export async function cli(args: string[]) {
     }-${commit.slice(0, 7)}`;
     await exec(`docker rm -f ${containerName}`);
 
+    console.log("COMMANDS:");
+    console.log(" - Follow the container's logs:");
+    console.log(`   $ docker logs -f ${containerName}`);
+    console.log(" - Stop the container:");
+    console.log(`   $ docker rm ${containerName}`);
+    console.log("");
+
     const cloneCmd = `cd /home/flakewatch/clone/ && git clone ${gitURL} ${name} && cd ${name} && git checkout ${commit}`;
     const updateFlakewatchCmd = `cd /home/flakewatch/flakewatch/backend && git pull && npm install && npm run build`;
     const projectJson = JSON.stringify(project).replaceAll('"', '\\"');
@@ -51,8 +64,12 @@ export async function cli(args: string[]) {
     await exec(
         `docker run --name='${containerName}' -i flakewatch:base ${cmd}`
     );
-    await readFlakewatchResultsToDB(
+    const flakyDetected = await readFlakewatchResultsToDB(
         project as unknown as ProjectInfo,
         containerName
     );
+    if (!flakyDetected) {
+        console.log("No flakiness detected.");
+    }
+    console.log(`(see ./run-logs/${project.name}/ for logs)`);
 }

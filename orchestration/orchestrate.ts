@@ -181,4 +181,6 @@ export async function readFlakewatchResultsToDB(
             category: "CI",
         });
     }
+
+    return flakyDetected;
 }
