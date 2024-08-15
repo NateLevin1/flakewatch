@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import { XMLParser } from "fast-xml-parser";
 
 const OBO_FAILURE_RERUN_COUNT = 4;
+const OBO_TIMEOUT_MULT = 5;
 
 const xmlParser = new XMLParser();
 // Section 2.3.2 One-By-One in Lam et al https://cs.gmu.edu/~winglam/publications/2020/LamETAL20OOPSLA.pdf
@@ -15,12 +16,23 @@ export default async function detectOneByOne(
         pl,
         fullModulePath,
         className,
+        timeoutSecs,
     }: DetectorInfo,
     detectorRuns: DetectorRun[]
 ) {
+    // TODO: Can we parallelize this? Currently, the problem is the XML report gets overwritten. -DoutputDirectory doesn't work (mvn bug?)
+    const startTime = Date.now();
+
     // run every test before qualifiedTestName
-    for (const test of allTests) {
+    for (var testIndex = 0; testIndex < allTests.length; testIndex++) {
+        const test = allTests[testIndex]!;
         if (test === qualifiedTestName) continue;
+        const elapsedSecs = (Date.now() - startTime) / 1000;
+        if (elapsedSecs > OBO_TIMEOUT_MULT * timeoutSecs * 60) {
+            throw new Error(
+                `OBO timeout after ${elapsedSecs}; got to ${testIndex} / ${allTests.length}`
+            );
+        }
 
         const { stdout: output } = await exec(
             `cd ${projectPath} && mvn test -Dmaven.ext.class.path="/home/flakewatch/surefire-changing-maven-extension-1.0-SNAPSHOT.jar" -Dsurefire.runOrder=testorder -Dtest=${test},${qualifiedTestName} -Dsurefire.rerunFailingTestsCount=${OBO_FAILURE_RERUN_COUNT} ${pl} -B`
