@@ -216,28 +216,37 @@ export async function detectIDFlakies(
                 const originIndex = result.stackTrace.findIndex(
                     (st) => !st.declaringClass.startsWith("org.junit")
                 );
-                const origin = result.stackTrace[originIndex]!;
-                const searchStr = origin.fileName + ":" + origin.lineNumber;
-                const occurrences = searchStr.split(searchStr).length - 1;
-                if (occurrences > 1) {
-                    // if there are multiple occurrences, we can't be sure which one is the right one
-                    const warning =
-                        "Warning: multiple occurrences of the same file and line number in the stack trace. Choosing the first one.";
-                    console.warn(warning);
+                if (originIndex === -1) {
                     await writeDetectorError({
-                        message: warning,
+                        message:
+                            "Couldn't find failure message in stack trace.",
                         result,
                         stdout: output,
                     });
+                } else {
+                    const origin = result.stackTrace[originIndex]!;
+                    const searchStr = origin.fileName + ":" + origin.lineNumber;
+                    const occurrences = searchStr.split(searchStr).length - 1;
+                    if (occurrences > 1) {
+                        // if there are multiple occurrences, we can't be sure which one is the right one
+                        const warning =
+                            "Warning: multiple occurrences of the same file and line number in the stack trace. Choosing the first one.";
+                        console.warn(warning);
+                        await writeDetectorError({
+                            message: warning,
+                            result,
+                            stdout: output,
+                        });
+                    }
+                    const filenameIndex = output.indexOf(searchStr);
+                    // go back originIndex+1 lines to get the failure (+1 to get to the start of the line)
+                    let index = filenameIndex;
+                    for (let i = 0; i < originIndex + 2; i++) {
+                        index = output.lastIndexOf("\n", index - 1);
+                    }
+                    const failureEndIndex = output.indexOf("\n", index + 1);
+                    failure = md5(output.slice(index + 1, failureEndIndex));
                 }
-                const filenameIndex = output.indexOf(searchStr);
-                // go back originIndex+1 lines to get the failure (+1 to get to the start of the line)
-                let index = filenameIndex;
-                for (let i = 0; i < originIndex + 2; i++) {
-                    index = output.lastIndexOf("\n", index - 1);
-                }
-                const failureEndIndex = output.indexOf("\n", index + 1);
-                failure = md5(output.slice(index + 1, failureEndIndex));
             }
             existingRuns.push({
                 test,
