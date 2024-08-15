@@ -3,7 +3,13 @@ import type {
     StackTraceObj,
     TestCaseType,
 } from "../detectors.js";
-import { exec, md5, toArray, type DetectorRun } from "../runutils.js";
+import {
+    exec,
+    md5,
+    toArray,
+    writeDetectorError,
+    type DetectorRun,
+} from "../runutils.js";
 import fs from "fs/promises";
 import { XMLParser } from "fast-xml-parser";
 
@@ -54,6 +60,16 @@ export default async function detectIsolation(
             log: undefined,
         });
     };
+    const pushFail = (stackTrace: string) => {
+        detectorRuns.push({
+            passed: false,
+            prefixMd5: "",
+            test: qualifiedTestName,
+            tool: "Isolation",
+            failure: md5(stackTrace.slice(0, stackTrace.indexOf("\n"))),
+            log: undefined,
+        });
+    };
 
     if (testCase) {
         let failures: StackTraceObj[] = [];
@@ -65,25 +81,35 @@ export default async function detectIsolation(
                 ...(toArray(testCase.rerunFailure) || []),
             ];
         }
-        const runs = output.match(runRegex)!;
-        let failureIndex = 0;
-        for (const run of runs) {
-            if (run[0] === "R") {
-                // ERRO(R)
-                const { stackTrace } = failures[failureIndex]!;
-                detectorRuns.push({
-                    passed: false,
-                    prefixMd5: "",
-                    test: qualifiedTestName,
-                    tool: "Isolation",
-                    failure: md5(stackTrace.slice(0, stackTrace.indexOf("\n"))),
-                    log: undefined,
-                });
-                failureIndex += 1;
-            } else {
-                // INF(O)
+        const runs = output.match(runRegex);
+        if (runs) {
+            let failureIndex = 0;
+            for (const run of runs) {
+                if (run[0] === "R") {
+                    // ERRO(R)
+                    const { stackTrace } = failures[failureIndex]!;
+                    pushFail(stackTrace);
+                    failureIndex += 1;
+                } else {
+                    // INF(O)
+                    pushPass();
+                }
+            }
+        } else {
+            for (const { stackTrace } of failures) {
+                pushFail(stackTrace);
+            }
+            for (let i = 0; i < reruns + 1 - failures.length; i++) {
                 pushPass();
             }
+            const warning =
+                "No runs found in Isolation output - order of failures unknown.";
+            console.warn(warning);
+            await writeDetectorError({
+                message: warning,
+                stdout: output,
+                testXml,
+            });
         }
     } else {
         for (let i = 0; i < reruns + 1; i++) {
