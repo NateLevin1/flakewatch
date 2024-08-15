@@ -52,7 +52,8 @@ export async function writeDetectorError(e: any) {
         ?.join("")
         ?.replaceAll(" ", "_");
 
-    const zipName = `${Date.now()}-${shortErrorStr ?? "error"}`;
+    const rand = crypto.randomBytes(3).toString("base64url");
+    const zipName = `${Date.now()}-${shortErrorStr ?? "error"}-${rand}`;
     await zip.writeZipPromise(
         `/home/flakewatch/detector-errors/${zipName}.zip`
     );
