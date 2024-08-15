@@ -87,7 +87,7 @@ async function addLocalFolderToZip(
         await new Promise((res, rej) =>
             zip.addLocalFolderAsync(
                 localPath,
-                (success, err) => (err ? rej(err) : res(success)),
+                (success, err) => (err ? rej(new Error(err)) : res(success)),
                 "logs/" + folder + "/"
             )
         );

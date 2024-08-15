@@ -5,6 +5,7 @@
         "esno": "^4.7.0",
         "fast-xml-parser": "^4.4.0",
         "java-parser": "^2.3.2",
+        "serialize-error": "^11.0.3",
         "simple-git": "^3.25.0",
         "typescript": "^5.5.2"
     },
