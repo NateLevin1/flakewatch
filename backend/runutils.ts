@@ -32,7 +32,7 @@ export const run = async (fn: () => Promise<void>) => {
 
 export async function writeDetectorError(e: any) {
     const zip = new AdmZip();
-    zip.addFile("error.json", Buffer.from(serializeError(e)));
+    zip.addFile("error.json", Buffer.from(JSON.stringify(serializeError(e))));
 
     if (typeof e.stdout === "string") {
         console.error("\nStdout:");
