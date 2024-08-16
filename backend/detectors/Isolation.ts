@@ -66,7 +66,9 @@ export default async function detectIsolation(
             prefixMd5: "",
             test: qualifiedTestName,
             tool: "Isolation",
-            failure: md5(stackTrace.slice(0, stackTrace.indexOf("\n"))),
+            failure: stackTrace
+                ? md5(stackTrace.slice(0, stackTrace.indexOf("\n")))
+                : undefined,
             log: undefined,
         });
     };
