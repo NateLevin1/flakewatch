@@ -77,7 +77,7 @@ export default async function detectIsolation(
         let failures: StackTraceObj[] = [];
         if ("flakyFailure" in testCase) {
             failures = toArray(testCase.flakyFailure)!;
-        } else {
+        } else if (testCase.failure) {
             failures = [
                 { stackTrace: testCase.failure },
                 ...(toArray(testCase.rerunFailure) || []),
