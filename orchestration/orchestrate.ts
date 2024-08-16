@@ -19,11 +19,17 @@ export const exec = util.promisify(execC);
 export async function orchestrate() {
     reloadProjects();
     const currentVersion = (await exec("git rev-parse HEAD")).stdout.trim();
+    const date = new Date().toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+    });
+    const dashes = "-".repeat(date.length);
+    const projectCount = projects.length;
+    const version = currentVersion.slice(0, 7);
     console.log(
-        "Orchestrating " +
-            projects.length +
-            " projects, version=" +
-            currentVersion
+        `\n\n\n\n |\n |   ${date}\n |   ${dashes}\n |   Orchestrating ${projectCount} projects, version=${version}\n |\n`
     );
     for (const project of projects) {
         orchestrateProject(project);
