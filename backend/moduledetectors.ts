@@ -183,7 +183,7 @@ export async function detectIDFlakies(
             testOrder: string[];
             results: {
                 [key: string]: {
-                    result: "PASS" | "FAILURE";
+                    result: "PASS" | "FAILURE" | "SKIPPED";
                     stackTrace: {
                         declaringClass: string;
                         methodName: string;
@@ -197,6 +197,8 @@ export async function detectIDFlakies(
         const prefixStack: string[] = [];
         for (const idflakiesTest of ordering.testOrder) {
             const result = ordering.results[idflakiesTest]!;
+            if (result.result === "SKIPPED") continue;
+
             const passed = result.result === "PASS";
             const test = convertIdFlakiesTestName(idflakiesTest);
 
