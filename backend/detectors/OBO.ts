@@ -4,7 +4,7 @@ import fs from "fs/promises";
 import { XMLParser } from "fast-xml-parser";
 
 const OBO_FAILURE_RERUN_COUNT = 4;
-const OBO_TIMEOUT_MULT = 5;
+const OBO_TIMEOUT_MULT = 10;
 
 const xmlParser = new XMLParser();
 // Section 2.3.2 One-By-One in Lam et al https://cs.gmu.edu/~winglam/publications/2020/LamETAL20OOPSLA.pdf
