@@ -78,9 +78,10 @@ async function orchestrateProject(project: Project) {
                 )
             ).toString()
         ) as UpdateResults;
-        if (!updateResults.compileSuccess) {
-            console.error(project.name + ": Compilation failed.");
-            return;
+        if (updateResults.compilationFailure) {
+            throw new Error(
+                "Compilation failed: " + updateResults.compilationFailure
+            );
         }
         try {
             await exec(`docker image rm ${projectImageName}`); // remove the old image if present

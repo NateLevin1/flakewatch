@@ -13,7 +13,7 @@ update(projectInfo);
 export async function update(project: ProjectInfo) {
     console.log("Started updater.");
     let result: UpdateResults = {
-        compileSuccess: false,
+        compilationFailure: undefined,
         shouldRunFlakewatch: false,
     } satisfies UpdateResults;
 
@@ -47,14 +47,14 @@ export async function update(project: ProjectInfo) {
             await exec(
                 `cd /home/flakewatch/clone/${project.name} && mvn install -ff -B -DskipTests`
             );
-            result.compileSuccess = true;
             console.log("Compilation succeeded.");
         } catch (e) {
             console.error("Compilation failed: ");
             console.error(e);
+            result.compilationFailure = e + "";
         }
 
-        if (!result.compileSuccess) return;
+        if (result.compilationFailure) return;
 
         const lastCheckedCommit = project.lastCheckedCommit;
         const log = await git.log({

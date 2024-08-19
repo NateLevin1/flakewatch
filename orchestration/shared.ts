@@ -12,7 +12,7 @@ export type FlakewatchResults = {
 };
 export type FlakyCategory = "OD-Vic" | "OD-Brit" | "ID" | "NOD";
 export type UpdateResults = {
-    compileSuccess?: boolean;
+    compilationFailure?: string;
     shouldRunFlakewatch?: boolean;
     newLastCheckedCommit?: string;
 };
