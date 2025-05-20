@@ -5,22 +5,17 @@ FROM ubuntu:24.04
 RUN \
   apt-get update && \
   apt-get install -y software-properties-common && \
-# Install openJDK8
+# Install openJDK21
   apt-get update && \
-  apt-get install -y openjdk-8-jdk && \
+  apt-get install -y openjdk-21-jdk && \
 # Install git
   apt-get install -y git && \
   git --version && \
 # Install misc
   apt-get update && \
-  apt-get install -y sudo vim wget curl zip && \
-# Install NodeJS
-  apt-get update && \
-  apt-get install -y npm && \
-  npm install npm@latest -g && \
-  npm install n -g && \
-  n lts && \
+  apt-get install -y sudo vim wget curl zip
 # Install Python
+RUN \
   apt-get update && \
   apt-get install -y python3
 
@@ -30,6 +25,15 @@ USER flakewatch
 
 WORKDIR /home/flakewatch/
 
+# Install NodeJS (via NVM - https://github.com/nvm-sh/nvm)
+ENV NODE_VERSION=22.15.1
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+ENV NVM_DIR=/home/flakewatch/.nvm
+RUN . "$NVM_DIR/nvm.sh" && nvm install ${NODE_VERSION}
+RUN . "$NVM_DIR/nvm.sh" && nvm use v${NODE_VERSION}
+RUN . "$NVM_DIR/nvm.sh" && nvm alias default v${NODE_VERSION}
+ENV PATH="/home/flakewatch/.nvm/versions/node/v${NODE_VERSION}/bin/:${PATH}"
+
 # Install Maven 3.9.8 locally for user
 RUN \
   wget https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.8/apache-maven-3.9.8-bin.tar.gz && \
@@ -37,23 +41,23 @@ RUN \
 
 ARG ARCHITECTURE=amd64
 ENV ARCH=${ARCHITECTURE}
-ENV JAVA_HOME /usr/lib/jvm/java-8-openjdk-${ARCHITECTURE}/
-ENV M2_HOME /home/flakewatch/apache-maven
-ENV MAVEN_HOME /home/flakewatch/apache-maven
-ENV PATH /home/flakewatch/apache-maven/bin:$PATH
+ENV JAVA_HOME=/usr/lib/jvm/java-21-openjdk-${ARCHITECTURE}/
+ENV M2_HOME=/home/flakewatch/apache-maven
+ENV MAVEN_HOME=/home/flakewatch/apache-maven
+ENV PATH=/home/flakewatch/apache-maven/bin:$PATH
 
 RUN \
-  echo "export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-$ARCH/" >> ~/.bashrc && \
+  echo "export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-$ARCH/" >> ~/.bashrc && \
   echo 'export M2_HOME=$HOME/apache-maven' >> ~/.bashrc && \
   echo 'export MAVEN_HOME=$HOME/apache-maven' >> ~/.bashrc && \
   echo 'export PATH=$HOME/apache-maven/bin:$PATH' >> ~/.bashrc
 
 # Install detector tooling
 # - MavenSurefire extension
-RUN git clone 'https://github.com/TestingResearchIllinois/maven-surefire.git'
+RUN git clone 'https://github.com/NateLevin1/maven-surefire'
 RUN cd maven-surefire && \
   git checkout umaster-tms-w-ext && \
-  mvn install -DskipTests -Drat.skip && \
+  bash install.sh && \
   cp surefire-changing-maven-extension/target/surefire-changing-maven-extension-1.0-SNAPSHOT.jar /home/flakewatch/
 
 RUN git clone 'https://github.com/NateLevin1/flakewatch.git' && \
