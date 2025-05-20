@@ -71,7 +71,7 @@ export async function runDetectors({
     minsAllowed: number;
 }): Promise<{ category: FlakyCategory | undefined }> {
     const fullModulePath = module ? projectPath + "/" + module : projectPath;
-    const pl = module ? `-pl ${module}` : "";
+    const pl = module ? `-pl ${module} -am` : "";
 
     const detectorInfo = {
         qualifiedTestName,

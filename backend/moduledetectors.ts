@@ -43,7 +43,7 @@ export async function runModuleDetectors({
 
     const fullModulePath = module ? projectPath + "/" + module : projectPath;
     const testArgs = project.mvnTestArgs ?? "";
-    const pl = module ? `-pl ${module}` : "";
+    const pl = module ? `-pl ${module} -am` : "";
     const toolTimings: ToolTimings = {} as any;
     toolTimings._minsAllowed = { module: minsAllowed, test: 0 };
 
