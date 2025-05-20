@@ -31,9 +31,11 @@ export async function orchestrate() {
     console.log(
         `\n\n\n\n |\n |   ${date}\n |   ${dashes}\n |   Orchestrating ${projectCount} projects, version=${version}\n |\n`
     );
+    let projectPromises = [];
     for (const project of projects) {
-        orchestrateProject(project);
+        projectPromises.push(orchestrateProject(project));
     }
+    await Promise.allSettled(projectPromises);
 }
 
 async function orchestrateProject(project: Project) {
