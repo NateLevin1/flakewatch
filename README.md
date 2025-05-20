@@ -40,7 +40,7 @@ The `keepAlive` option will keep the container running after the detectors have 
 Example:
 
 ```bash
-npm start -- https://github.com/NateLevin1/test-nondex 1fb14a8 com.example.HmOrderTest#testGetAlphabet
+npm start -- https://github.com/NateLevin1/test-nondex b368d7c com.example.OrderDependentTest#testLocalEmptyVictim
 ```
 
 ## Adding Projects & Configuration
