@@ -4,6 +4,7 @@ import { runModuleDetectors, type ModuleInfo } from "./moduledetectors.js";
 import type { ModifiedTests } from "./flakewatch.js";
 import { ResetMode, type SimpleGit } from "simple-git";
 import fs from "fs/promises";
+import { exec } from "./runutils.js";
 
 const MODULE_HOURS = 6;
 const TEST_HOURS = 18;
@@ -34,12 +35,32 @@ export async function handleModifiedTests(
     );
     const moduleInfos = new Map<string, ModuleInfo>();
     const existingTests = new Set<string>();
-    console.log("Getting module infos:");
 
     await git.clean("fd");
     await git.reset(ResetMode.HARD);
     await git.checkout(latestSha);
 
+    try {
+        console.log("Compiling tests");
+        await exec(`cd ${projectPath} && mvn test-compile -B`);
+        console.log("Running mvn install");
+        await exec(
+            `cd ${projectPath} && mvn install -Drat.skip -Denforcer.skip -Dmaven.test.skip=true -Dcheckstyle.skip -DskipITs=true -Dmaven.javadoc.skip=true -B`
+        );
+    } catch (e) {
+        console.error("Failed to run mvn install");
+        console.error(e);
+        if (typeof e === "object" && e !== null) {
+            if ("stdout" in e) {
+                console.error((e as { stdout?: unknown }).stdout);
+            }
+            if ("stderr" in e) {
+                console.error((e as { stderr?: unknown }).stderr);
+            }
+        }
+    }
+
+    console.log("Getting module infos:");
     for (const module of modules) {
         console.log(` - getting mod "${module}" @ "${latestSha}"`);
         const moduleInfo = await runModuleDetectors({
