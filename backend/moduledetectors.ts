@@ -106,7 +106,7 @@ async function getAllTests({
     // we run `mvn test` and parse its output to get the list of all tests
     await exec(`cd ${fullModulePath} && rm -rf target/surefire-reports`);
     await exec(
-        `cd ${projectPath} && mvn test ${pl} ${testArgs} -DskipITs -Dmaven.test.failure.ignore=true -DtestFailureIgnore=true`
+        `cd ${projectPath} && mvn test ${pl} ${testArgs} -DskipITs -Dmaven.test.failure.ignore=true -DtestFailureIgnore=true >/dev/null`
     );
     // fullModulePath/target/surefire-reports/TEST-*.xml has the test cases
     const reportFiles = await fs.readdir(
@@ -151,7 +151,7 @@ export async function detectIDFlakies(
     const startTime = Date.now();
 
     await exec(
-        `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=reverse-class-method -Ddt.detector.original_order.all_must_pass=false`
+        `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=reverse-class-method -Ddt.detector.original_order.all_must_pass=false >/dev/null`
     );
     console.log(" - finished iDFlakies Reverse C+M");
 
@@ -161,7 +161,7 @@ export async function detectIDFlakies(
     );
 
     await exec(
-        `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=random-class-method -Ddt.detector.original_order.all_must_pass=false -Ddetector.timeout=${remainingSecs}`
+        `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=random-class-method -Ddt.detector.original_order.all_must_pass=false -Ddetector.timeout=${remainingSecs} >/dev/null`
     );
 
     const testRunsDir = fullModulePath + "/.dtfixingtools/test-runs/";
