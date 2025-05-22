@@ -47,11 +47,13 @@ export async function categorize({
         "toolTimings.json",
         Buffer.from(JSON.stringify(toolTimings, null, 2))
     );
-    await addLocalFolderToZip(
-        `/tmp/idflakies${module ? "-" + module : ""}`,
-        "idflakies",
-        zip
-    );
+    const iDFlakiesLogsPath = `/tmp/idflakies${module ? "-" + module : ""}`;
+    const iDFlakiesLogsExist = await fs
+        .stat(iDFlakiesLogsPath)
+        .catch(() => false);
+    if (iDFlakiesLogsExist) {
+        await addLocalFolderToZip(iDFlakiesLogsPath, "idflakies", zip);
+    }
 
     if (category) {
         console.log("[!] " + qualifiedTestName + " is flaky: " + category);

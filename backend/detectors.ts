@@ -99,6 +99,14 @@ export async function runDetectors({
 
     for (let i = 0; i < detectors.length; i++) {
         const detector = detectors[i]!;
+        if (project.disabledDetectors?.includes(detector.name)) {
+            console.log(
+                " --- Skipping " +
+                    detector.name +
+                    " because it is disabled for this project."
+            );
+            continue;
+        }
         console.log(" --- Running " + detector.name);
         const startTime = Date.now();
         await run(() =>

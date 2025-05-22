@@ -21,6 +21,7 @@ export type Project = {
     gitURL: string;
     branch: string;
     mvnTestArgs?: string;
+    disabledDetectors?: string[];
     owner: string;
     repo: string;
     debug?: {

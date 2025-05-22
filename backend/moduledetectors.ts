@@ -74,20 +74,26 @@ export async function runModuleDetectors({
 
     const detectorRuns = new Map() as ModuleDetectorRuns;
 
-    const iDFlakiesStartTime = Date.now();
-    await run(() =>
-        detectIDFlakies(
-            {
-                fullModulePath,
-                timeoutSecs: getTimeout(0),
-                minDetectorSecs: MIN_DETECTOR_SEC,
-                module,
-            },
-            detectorRuns
-        )
-    );
-    toolTimings["iDFlakies"] = Date.now() - iDFlakiesStartTime;
-    console.log(" - finished iDFlakies");
+    if (!project.disabledDetectors?.includes("iDFlakies")) {
+        const iDFlakiesStartTime = Date.now();
+        await run(() =>
+            detectIDFlakies(
+                {
+                    fullModulePath,
+                    timeoutSecs: getTimeout(0),
+                    minDetectorSecs: MIN_DETECTOR_SEC,
+                    module,
+                },
+                detectorRuns
+            )
+        );
+        toolTimings["iDFlakies"] = Date.now() - iDFlakiesStartTime;
+        console.log(" - finished iDFlakies");
+    } else {
+        console.log(
+            " - skipping iDFlakies because it is disabled for this project."
+        );
+    }
 
     return { allTests, detectorRuns, toolTimings };
 }
