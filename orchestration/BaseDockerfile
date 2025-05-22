@@ -34,10 +34,10 @@ RUN . "$NVM_DIR/nvm.sh" && nvm use v${NODE_VERSION}
 RUN . "$NVM_DIR/nvm.sh" && nvm alias default v${NODE_VERSION}
 ENV PATH="/home/flakewatch/.nvm/versions/node/v${NODE_VERSION}/bin/:${PATH}"
 
-# Install Maven 3.9.8 locally for user
+# Install Maven 3.9.9 locally for user
 RUN \
-  wget https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.8/apache-maven-3.9.8-bin.tar.gz && \
-  tar -xzf apache-maven-3.9.8-bin.tar.gz && mv apache-maven-3.9.8/ apache-maven/
+  wget https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.9/apache-maven-3.9.9-bin.tar.gz && \
+  tar -xzf apache-maven-3.9.9-bin.tar.gz && mv apache-maven-3.9.9/ apache-maven/
 
 ARG ARCHITECTURE=amd64
 ENV ARCH=${ARCHITECTURE}
