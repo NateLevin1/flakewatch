@@ -37,6 +37,7 @@ export function startServer() {
             onTick: orchestrate,
             timeZone: "America/New_York",
             start: true,
+            runOnInit: process.env.START_NOW === "true",
         });
     });
 }
