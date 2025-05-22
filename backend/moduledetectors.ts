@@ -164,6 +164,12 @@ export async function detectIDFlakies(
         `cd ${fullModulePath} && mvn edu.illinois.cs:idflakies-maven-plugin:2.0.0:detect -Ddetector.detector_type=random-class-method -Ddt.detector.original_order.all_must_pass=false -Ddetector.timeout=${remainingSecs} >/dev/null`
     );
 
+    await exec(
+        `cp -r ${fullModulePath}/.dtfixingtools /tmp/idflakies${
+            module ? "-" + module : ""
+        }`
+    );
+
     const testRunsDir = fullModulePath + "/.dtfixingtools/test-runs/";
     const resultsDir = testRunsDir + "results/";
     const files = await fs.readdir(resultsDir);
@@ -262,12 +268,6 @@ export async function detectIDFlakies(
             prefixStack.push(test);
         }
     }
-
-    await exec(
-        `cp -r ${fullModulePath}/.dtfixingtools /tmp/idflakies${
-            module ? "-" + module : ""
-        }`
-    );
 }
 
 function convertIdFlakiesTestName(testName: string) {
