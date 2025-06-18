@@ -20,7 +20,7 @@ export default async function detectNonDex(
         : "-DnondexRuns=10";
     try {
         await execTimeout(
-            `cd ${fullModulePath} && mvn edu.illinois:nondex-maven-plugin:2.1.7:nondex -Dtest=${qualifiedTestName} -DnondexMode=ONE ${nondexOpts} -B`,
+            `cd ${fullModulePath} && mvn edu.illinois:nondex-maven-plugin:2.2.1:nondex -Dtest=${qualifiedTestName} -DnondexMode=ONE ${nondexOpts} -B`,
             timeoutSecs,
             "There are test failures."
         );
